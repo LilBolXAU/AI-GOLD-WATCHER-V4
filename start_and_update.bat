@@ -13,7 +13,14 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo.
 
-echo [2/2] Khoi dong AI Gold Watcher V4 Desktop App...
+echo [2/3] Kiem tra thu vien phan mem can thiet...
+python -c "import customtkinter, pandas, MetaTrader5" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [THONG BAO] Dang tu dong cai dat thu vien giao dien va MT5...
+    python -m pip install -r requirements.txt
+)
+
+echo [3/3] Khoi dong AI Gold Watcher V4 Desktop App...
 python src/ui/desktop_app.py
 if %ERRORLEVEL% NEQ 0 (
     echo.
