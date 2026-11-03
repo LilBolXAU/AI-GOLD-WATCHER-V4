@@ -892,7 +892,7 @@ class AIGoldWatcherApp(ctk.CTk):
             err = (res.stderr or "").strip()
             out = (res.stdout or "").strip()
             if "Repository not found" in err:
-                self._log_terminal("❌ Chưa tìm thấy repo trên GitHub! Vui lòng vào https://github.com/LilBoiXAU bấm '+' -> New repository, đặt tên 'AI-GOLD-WATCHER-V4' rồi bấm Đẩy code lại.")
+                self._log_terminal("❌ Chưa tìm thấy repo trên GitHub! Vui lòng vào https://github.com/LilBolXAU bấm '+' -> New repository, đặt tên 'AI-GOLD-WATCHER-V4' rồi bấm Đẩy code lại.")
             elif res.returncode == 0:
                 self._log_terminal("✅ Đẩy code và danh sách bản quyền lên GitHub thành công! Bạn bè đã có thể bấm Tải cập nhật.")
             else:

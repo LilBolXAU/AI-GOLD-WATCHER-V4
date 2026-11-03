@@ -14,7 +14,7 @@ logger = logging.getLogger("v4_trading.license")
 LICENSE_FILE = Path("allowed_accounts.json")
 ADMIN_ACCOUNTS = [434467985]
 GITHUB_RAW_LICENSE_URL = (
-    "https://raw.githubusercontent.com/LilBoiXAU/AI-GOLD-WATCHER-V4/main/allowed_accounts.json"
+    "https://raw.githubusercontent.com/LilBolXAU/AI-GOLD-WATCHER-V4/main/allowed_accounts.json"
 )
 
 
