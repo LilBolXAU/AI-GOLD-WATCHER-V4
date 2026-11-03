@@ -1088,15 +1088,23 @@ class AIGoldWatcherApp(ctk.CTk):
                 save_local_version(self.latest_remote_info)
                 self.dismissed_build_number = int(self.latest_remote_info.get("build", 0))
 
-            if Path(".git").exists():
-                subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=10)
-                res = subprocess.run(["git", "pull", "--rebase", "origin", "main"], capture_output=True, text=True, timeout=15)
-                if res.returncode != 0:
-                    res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, timeout=15)
+            if not Path(".git").exists():
+                self._log_terminal("🔧 Đang tự động kết nối thư mục với kho mã nguồn GitHub...")
+                try:
+                    subprocess.run(["git", "init"], capture_output=True, timeout=10)
+                    subprocess.run(["git", "remote", "add", "origin", "https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git"], capture_output=True, timeout=10)
+                    subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=25)
+                    res = subprocess.run(["git", "reset", "--hard", "origin/main"], capture_output=True, text=True, timeout=20)
+                    out = (res.stdout or "").strip() or (res.stderr or "").strip()
+                    self._log_terminal(f"📦 Đã đồng bộ mã nguồn Git thành công:\n{out}")
+                except Exception as e:
+                    self._log_terminal(f"⚠️ Không thể khởi tạo Git tự động: {e}. Đang tải trực tiếp từ GitHub ZIP...")
+                    self._download_and_extract_github_zip()
+            else:
+                subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=15)
+                res = subprocess.run(["git", "reset", "--hard", "origin/main"], capture_output=True, text=True, timeout=20)
                 out = (res.stdout or "").strip() or (res.stderr or "").strip()
                 self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
-            else:
-                self._log_terminal("ℹ️ Đang chạy từ thư mục giải nén. Đã cập nhật số hiệu phiên bản thành công!")
 
             if self.has_active_update_banner:
                 self.update_banner_frame.pack_forget()
@@ -1108,6 +1116,30 @@ class AIGoldWatcherApp(ctk.CTk):
                 self._update_role_ui(self.current_account, force=True)
         except Exception as e:
             self._log_terminal(f"❌ Lỗi cập nhật: {e}")
+
+    def _download_and_extract_github_zip(self):
+        """Fallback direct ZIP download and extraction from GitHub without requiring Git CLI."""
+        import urllib.request
+        import zipfile
+        import io
+        try:
+            zip_url = "https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4/archive/refs/heads/main.zip"
+            req = urllib.request.Request(zip_url, headers={"User-Agent": "AIGoldWatcherV4-ZipUpdater"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = resp.read()
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                for member in z.namelist():
+                    parts = member.split("/", 1)
+                    if len(parts) > 1 and parts[1]:
+                        target_path = Path(parts[1])
+                        if member.endswith("/"):
+                            target_path.mkdir(parents=True, exist_ok=True)
+                        else:
+                            target_path.parent.mkdir(parents=True, exist_ok=True)
+                            target_path.write_bytes(z.read(member))
+            self._log_terminal("📦 Đã giải nén và cập nhật trực tiếp từ GitHub ZIP thành công!")
+        except Exception as e:
+            self._log_terminal(f"❌ Lỗi tải ZIP: {e}")
 
     def _send_admin_broadcast(self):
         """Publish and push Admin rainbow broadcast to all clients & Telegram."""
