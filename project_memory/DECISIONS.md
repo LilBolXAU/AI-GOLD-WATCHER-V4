@@ -380,6 +380,34 @@
      - Initial push succeeded; code and license sync fully operational.
 - **Consequences**: Real MT5 300-bar M5 replay surged from 2 trades (+$0.02) to **13 trades, 9 Wins, 4 Losses (69.2% Win Rate), +$12.17 USD (+24.3% ROI on $50 account)**. Full test suite passing at 104/104 tests (100%).
 
+---
+
+### ADR-027: Admin Rainbow Chat Broadcast & Real-Time New Version Update Notification
+- **Date**: 2026-11-04
+- **Status**: Accepted
+- **Context**: User requested two social/administrative features:
+  1. An Admin Chat feature where Admin (LilBoiXAU) can broadcast messages to all connected client apps, formatted with eye-catching large, bold rainbow-colored font.
+  2. Automatic detection and prominent banner notification whenever Admin pushes a new update/release to GitHub.
+- **Decision**:
+  1. **Updater & Announcement Engine (`src/config/updater.py`)**:
+     - Manages `version.json` and `announcements.json`.
+     - Supports `bump_version_on_push()` to automatically increment build numbers and timestamps upon Admin git pushes.
+     - Supports `check_remote_update()` and `check_remote_announcement()` querying raw GitHub endpoints without rate limits.
+  2. **Admin Rainbow Chat (`src/ui/desktop_app.py`)**:
+     - Integrated Admin Broadcast Input Box in the Admin Whitelist Panel (`[🌈 Gửi thông báo]`).
+     - Implemented `_log_admin_rainbow()` rendering rich Tkinter text tagged character-by-character with neon rainbow colors (`#ff1744`, `#ff9100`, `#ffd600`, `#00e676`, `#00e5ff`, `#2979ff`, `#d500f9`) in bold 15pt font.
+     - Added an Admin Broadcast Notification Banner right above the real-time terminal log.
+     - Dispatches instant Telegram broadcast to verified chats when an announcement is sent.
+     - Automatically commits and pushes `announcements.json` to GitHub in a daemon thread.
+  3. **Auto-Update Banner**:
+     - Background polling checks for new builds every 20 seconds.
+     - When `remote_build > local_build`, displays a bright green/gold update notification bar at the top of the window with changelog description and single-click `[🔄 CẬP NHẬT NGAY]` button.
+     - Clicking executes `git pull origin main` and dismisses the banner upon completion.
+  4. **Unit Tests**:
+     - Added `tests/unit/test_updater.py` (4 tests).
+- **Consequences**: Admin can communicate system notices in vibrant rainbow typography across all client desktops and Telegram, and users receive zero-friction notifications to update their software whenever new code is released. Test suite expanded to 108/108 passing tests (100%).
+
+
 
 
 

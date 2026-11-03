@@ -14,7 +14,8 @@
 3. Added Trading Style Profile dropdown in Desktop App (`⚡ Sniper Chuẩn V4`, `🛡️ Siêu Bảo Toàn`, `🎯 Scalper Cân Bằng`).
 4. Replay of 300 real MT5 M5 bars (25 hours) generated **13 trades, 9 Wins / 4 Losses (69.2% WR), +$12.17 profit (+24.3% ROI)**.
 5. Successfully pushed repository to GitHub (`https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git`).
-6. Full test suite: **104 / 104 passed (100%)**.
+6. Added **Admin Rainbow Chat Broadcast** (in đậm to, màu cầu vồng trên app khách hàng + Telegram) and **Automatic New Version Update Notification Bar** (`src/config/updater.py`).
+7. Full test suite: **108 / 108 passed (100%)**.
 
 ---
 

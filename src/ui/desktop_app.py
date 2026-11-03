@@ -72,6 +72,8 @@ class AIGoldWatcherApp(ctk.CTk):
         # Dynamic Role state: "admin" | "client_auth" | "client_unauth" | "pending"
         self.current_role: Optional[str] = None
         self.current_account: Optional[int] = None
+        self.last_seen_announcement_id: Optional[str] = None
+        self.has_active_update_banner: bool = False
 
         # Wire logging to GUI
         self.log_handler = GuiLogHandler(self.log_queue)
@@ -82,6 +84,7 @@ class AIGoldWatcherApp(ctk.CTk):
 
         # Build UI layout
         self._build_header()
+        self._build_update_banner()
         self._build_metrics_cards()
         self._build_main_content()
 
@@ -91,6 +94,7 @@ class AIGoldWatcherApp(ctk.CTk):
         # Start periodic GUI updater
         self.after(500, self._process_log_queue)
         self.after(1000, self._refresh_telemetry)
+        self.after(3000, self._check_updates_and_broadcasts)
 
         self._log_terminal("🌟 AI GOLD WATCHER V4 Desktop App khởi động thành công!")
         self._log_terminal("🔑 Sẵn sàng kết nối MT5 XAUUSDm...")
@@ -150,6 +154,45 @@ class AIGoldWatcherApp(ctk.CTk):
             text_color="#bdc3c7",
         )
         self.license_badge.pack(side="right", padx=5)
+
+    def _build_update_banner(self):
+        """Build top dismissable notification bar for new updates."""
+        self.update_banner_frame = ctk.CTkFrame(
+            self,
+            corner_radius=8,
+            fg_color="#1a3a2a",
+            border_width=2,
+            border_color="#2ecc71",
+        )
+        # Note: Packed dynamically when an update is detected
+
+        self.lbl_update_title = ctk.CTkLabel(
+            self.update_banner_frame,
+            text="🚀 ĐÃ CÓ BẢN CẬP NHẬT MỚI TỪ ADMIN LILBOIXAU!",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f1c40f",
+        )
+        self.lbl_update_title.pack(side="left", padx=15, pady=8)
+
+        self.lbl_update_desc = ctk.CTkLabel(
+            self.update_banner_frame,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color="#ecf0f1",
+        )
+        self.lbl_update_desc.pack(side="left", padx=5, pady=8)
+
+        self.btn_apply_update = ctk.CTkButton(
+            self.update_banner_frame,
+            text="🔄 CẬP NHẬT NGAY",
+            width=140,
+            height=30,
+            fg_color="#27ae60",
+            hover_color="#2ecc71",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._apply_new_update,
+        )
+        self.btn_apply_update.pack(side="right", padx=15, pady=8)
 
     def _build_metrics_cards(self):
         """Build 4 KPI summary cards."""
@@ -377,6 +420,33 @@ class AIGoldWatcherApp(ctk.CTk):
         )
         self.lbl_pos_detail.pack(padx=15, pady=25)
 
+        # Admin Broadcast Notice Banner
+        self.admin_banner_frame = ctk.CTkFrame(
+            right_col,
+            corner_radius=8,
+            fg_color="#211528",
+            border_width=1,
+            border_color="#9b59b6",
+        )
+        self.lbl_admin_banner_title = ctk.CTkLabel(
+            self.admin_banner_frame,
+            text="👑 THÔNG BÁO TỪ MASTER ADMIN LilBoiXAU",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#f1c40f",
+        )
+        self.lbl_admin_banner_title.pack(anchor="w", padx=12, pady=(6, 1))
+
+        self.lbl_admin_banner_msg = ctk.CTkLabel(
+            self.admin_banner_frame,
+            text="Chào mừng anh em! Hệ thống AI GOLD WATCHER V4 đang hoạt động.",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#00e5ff",
+            wraplength=480,
+            justify="left",
+        )
+        self.lbl_admin_banner_msg.pack(anchor="w", padx=12, pady=(0, 6))
+        self.admin_banner_frame.pack(fill="x", padx=15, pady=(0, 6))
+
         # Terminal Log
         lbl_term = ctk.CTkLabel(right_col, text="NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (LIVE SIGNALS)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
         lbl_term.pack(anchor="w", padx=15, pady=(4, 4))
@@ -581,6 +651,39 @@ class AIGoldWatcherApp(ctk.CTk):
             command=self._git_push,
         )
         self.btn_push.pack(side="right", fill="x", expand=True, padx=(3, 0))
+
+        # Admin Rainbow Chat Broadcast
+        sep_chat = ctk.CTkFrame(self.license_container, height=1, fg_color="#34495e")
+        sep_chat.pack(fill="x", pady=(10, 6))
+
+        lbl_chat = ctk.CTkLabel(
+            self.license_container,
+            text="📢 CHAT ADMIN CẦU VỒNG (PHÁT THÔNG BÁO)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#e056fd",
+        )
+        lbl_chat.pack(anchor="w", pady=(0, 4))
+
+        chat_input_box = ctk.CTkFrame(self.license_container, fg_color="transparent")
+        chat_input_box.pack(fill="x", pady=2)
+
+        self.ent_admin_broadcast = ctk.CTkEntry(
+            chat_input_box,
+            placeholder_text="Nhập thông báo gửi đến người dùng...",
+            height=32,
+        )
+        self.ent_admin_broadcast.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        self.btn_broadcast = ctk.CTkButton(
+            chat_input_box,
+            text="🌈 Gửi thông báo",
+            width=115,
+            height=32,
+            fg_color="#8e44ad",
+            hover_color="#9b59b6",
+            command=self._send_admin_broadcast,
+        )
+        self.btn_broadcast.pack(side="right")
 
         if not self.is_running:
             self.btn_start.configure(
@@ -932,22 +1035,191 @@ class AIGoldWatcherApp(ctk.CTk):
             self._log_terminal(f"❌ Lỗi đồng bộ: {e}")
 
     def _git_push(self):
-        """Trigger git push to share update."""
-        self._log_terminal("📤 Đang lưu thay đổi và đẩy lên GitHub cho bạn bè...")
+        """Trigger git push to share update and auto-bump build version."""
+        self._log_terminal("📤 Đang lưu thay đổi, nâng số hiệu phiên bản và đẩy lên GitHub cho bạn bè...")
         try:
+            from src.config.updater import bump_version_on_push
+            new_v = bump_version_on_push("Bản cập nhật mới nhất từ Admin LilBoiXAU")
+            self._log_terminal(f"📦 Đã nâng số hiệu phiên bản: Build #{new_v['build']} ({new_v['release_time']})")
+
             subprocess.run(["git", "add", "."], capture_output=True, timeout=10)
-            subprocess.run(["git", "commit", "-m", "App License & Update Push"], capture_output=True, timeout=10)
+            subprocess.run(["git", "commit", "-m", f"Release: Update Build #{new_v['build']}"], capture_output=True, timeout=10)
             res = subprocess.run(["git", "push", "-u", "origin", "main"], capture_output=True, text=True, timeout=20)
             err = (res.stderr or "").strip()
             out = (res.stdout or "").strip()
             if "Repository not found" in err:
                 self._log_terminal("❌ Chưa tìm thấy repo trên GitHub! Vui lòng vào https://github.com/LilBolXAU bấm '+' -> New repository, đặt tên 'AI-GOLD-WATCHER-V4' rồi bấm Đẩy code lại.")
             elif res.returncode == 0:
-                self._log_terminal("✅ Đẩy code và danh sách bản quyền lên GitHub thành công! Bạn bè đã có thể bấm Tải cập nhật.")
+                self._log_terminal("✅ ĐẨY BẢN MỚI LÊN GITHUB THÀNH CÔNG! Toàn bộ người dùng sẽ tự động nhận được thông báo cập nhật.")
             else:
                 self._log_terminal(f"ℹ️ Thông tin đẩy code:\n{out or err}")
         except Exception as e:
             self._log_terminal(f"❌ Lỗi đẩy code: {e}")
+
+    def _apply_new_update(self):
+        """Apply newly detected update from master GitHub repo."""
+        self._log_terminal("🔄 Đang tải bản cập nhật mới nhất từ Admin...")
+        try:
+            res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, timeout=15)
+            out = (res.stdout or "").strip() or (res.stderr or "").strip()
+            self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
+            if self.has_active_update_banner:
+                self.update_banner_frame.pack_forget()
+                self.has_active_update_banner = False
+            self._log_terminal("🎉 BẠN ĐÃ CẬP NHẬT LÊN PHIÊN BẢN MỚI NHẤT THÀNH CÔNG!")
+            sync_remote_license(timeout=2.5)
+            if self.current_account:
+                self._update_role_ui(self.current_account, force=True)
+        except Exception as e:
+            self._log_terminal(f"❌ Lỗi cập nhật: {e}")
+
+    def _send_admin_broadcast(self):
+        """Publish and push Admin rainbow broadcast to all clients & Telegram."""
+        msg = self.ent_admin_broadcast.get().strip() if hasattr(self, "ent_admin_broadcast") else ""
+        if not msg:
+            self._log_terminal("⚠️ Vui lòng nhập nội dung thông báo trước khi gửi.")
+            return
+
+        from src.config.updater import publish_admin_announcement
+        payload = publish_admin_announcement(msg, sender="LilBoiXAU")
+        self.ent_admin_broadcast.delete(0, "end")
+
+        # Update local Admin banner
+        if hasattr(self, "lbl_admin_banner_msg"):
+            self.lbl_admin_banner_msg.configure(text=f"📢 {msg}")
+
+        # Render bold rainbow text in local terminal
+        self._log_admin_rainbow("LilBoiXAU", msg)
+
+        # Notify Telegram subscribers
+        try:
+            from src.monitoring.telegram_bot import TelegramNotifier
+            tg = TelegramNotifier()
+            if tg.enabled:
+                tg.send_message(
+                    f"👑 <b>THÔNG BÁO TỪ MASTER ADMIN LilBoiXAU</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📢 <b>{msg}</b>\n\n"
+                    f"⏰ <i>{payload['timestamp']} • Hệ thống AI GOLD WATCHER V4</i>"
+                )
+        except Exception:
+            pass
+
+        # Push announcements.json to GitHub in background thread so remote clients receive it
+        threading.Thread(target=self._push_announcement_worker, daemon=True).start()
+
+    def _push_announcement_worker(self):
+        try:
+            subprocess.run(["git", "add", "announcements.json"], capture_output=True, timeout=10)
+            subprocess.run(["git", "commit", "-m", "Broadcast: Admin Announcement Push"], capture_output=True, timeout=10)
+            subprocess.run(["git", "push", "origin", "main"], capture_output=True, timeout=20)
+            self.log_queue.put("✅ Đã phát thông báo Admin lên máy chủ GitHub thành công!")
+        except Exception as e:
+            self.log_queue.put(f"⚠️ Chưa thể đẩy thông báo lên GitHub: {e}")
+
+    def _log_admin_rainbow(self, sender: str, message: str, timestamp: str = ""):
+        """
+        Display Master Admin announcement in the terminal with large, bold, rainbow-colored text!
+        """
+        ts = timestamp or datetime.now().strftime("%H:%M:%S")
+        rainbow_colors = [
+            "#ff1744",  # Neon Red
+            "#ff9100",  # Neon Orange
+            "#ffd600",  # Neon Yellow
+            "#00e676",  # Neon Green
+            "#00e5ff",  # Neon Cyan
+            "#2979ff",  # Neon Blue
+            "#d500f9",  # Neon Purple
+        ]
+
+        try:
+            self.term_box._textbox.tag_config(
+                "admin_head",
+                foreground="#f1c40f",
+                font=("Segoe UI", 13, "bold"),
+            )
+            self.term_box._textbox.tag_config(
+                "admin_border",
+                foreground="#9b59b6",
+                font=("Segoe UI", 11, "bold"),
+            )
+
+            b_start = self.term_box._textbox.index("end-1c")
+            self.term_box.insert("end", "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+            b_end = self.term_box._textbox.index("end-1c")
+            self.term_box._textbox.tag_add("admin_border", b_start, b_end)
+
+            h_start = self.term_box._textbox.index("end-1c")
+            self.term_box.insert("end", f"👑 [THÔNG BÁO TỪ MASTER ADMIN {sender.upper()}] • {ts}\n")
+            h_end = self.term_box._textbox.index("end-1c")
+            self.term_box._textbox.tag_add("admin_head", h_start, h_end)
+
+            # Insert rainbow message characters
+            msg_text = f"📢  {message}\n"
+            for i, ch in enumerate(msg_text):
+                color = rainbow_colors[i % len(rainbow_colors)]
+                tag_name = f"rb_tag_{i % len(rainbow_colors)}"
+                self.term_box._textbox.tag_config(
+                    tag_name,
+                    foreground=color,
+                    font=("Segoe UI", 15, "bold"),
+                )
+                c_start = self.term_box._textbox.index("end-1c")
+                self.term_box.insert("end", ch)
+                c_end = self.term_box._textbox.index("end-1c")
+                self.term_box._textbox.tag_add(tag_name, c_start, c_end)
+
+            fb_start = self.term_box._textbox.index("end-1c")
+            self.term_box.insert("end", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+            fb_end = self.term_box._textbox.index("end-1c")
+            self.term_box._textbox.tag_add("admin_border", fb_start, fb_end)
+
+            self.term_box.see("end")
+        except Exception:
+            self._log_terminal(f"👑 [ADMIN {sender}]: {message}")
+
+    def _check_updates_and_broadcasts(self):
+        """Periodically check remote GitHub for new updates and Admin broadcasts."""
+        threading.Thread(target=self._query_remote_status_worker, daemon=True).start()
+        self.after(20000, self._check_updates_and_broadcasts)
+
+    def _query_remote_status_worker(self):
+        """Background thread checking GitHub for version updates and broadcasts."""
+        try:
+            from src.config.updater import check_remote_update, check_remote_announcement
+            # 1. Check for new update
+            has_update, remote_info = check_remote_update(timeout=2.5)
+            if has_update and remote_info and not self.has_active_update_banner:
+                self.after(0, lambda: self._show_update_banner(remote_info))
+
+            # 2. Check for new announcement
+            ann = check_remote_announcement(timeout=2.5)
+            if ann and ann.get("id") != self.last_seen_announcement_id:
+                self.last_seen_announcement_id = ann.get("id")
+                self.after(0, lambda: self._handle_new_announcement(ann))
+        except Exception:
+            pass
+
+    def _show_update_banner(self, remote_info: dict):
+        """Display the new version notification bar."""
+        self.has_active_update_banner = True
+        v_num = remote_info.get("version", "Mới")
+        b_num = remote_info.get("build", "")
+        desc = remote_info.get("description", "Đã có bản cập nhật mới từ Admin.")
+        self.lbl_update_title.configure(text=f"🚀 ĐÃ CÓ BẢN CẬP NHẬT MỚI: v{v_num} (Build #{b_num})!")
+        self.lbl_update_desc.configure(text=f"• {desc}")
+        # Pack right above cards_frame
+        self.update_banner_frame.pack(fill="x", padx=15, pady=(0, 6), before=self.cards_frame)
+        self._log_terminal(f"🔔 [THÔNG BÁO] Phát hiện bản cập nhật mới v{v_num} từ Admin LilBoiXAU! Hãy bấm [🔄 CẬP NHẬT NGAY].")
+
+    def _handle_new_announcement(self, ann: dict):
+        """Handle incoming Admin broadcast."""
+        sender = ann.get("sender", "LilBoiXAU")
+        msg = ann.get("message", "")
+        ts = ann.get("timestamp", "")
+        if hasattr(self, "lbl_admin_banner_msg"):
+            self.lbl_admin_banner_msg.configure(text=f"📢 {msg}")
+        self._log_admin_rainbow(sender=sender, message=msg, timestamp=ts)
 
     def _client_update_and_check(self):
         """Client-safe update check: syncs license from GitHub & runs git pull."""
