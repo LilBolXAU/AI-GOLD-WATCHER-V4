@@ -480,6 +480,9 @@ class AIGoldWatcherApp(ctk.CTk):
             new_role = "admin"
         else:
             is_auth = verify_account_authorized(login)
+            if not is_auth:
+                # If not found locally, attempt automatic remote verification from master GitHub repo
+                is_auth = verify_account_authorized(login, check_remote=True)
             new_role = "client_auth" if is_auth else "client_unauth"
 
         if not force and self.current_role == new_role and self.current_account == login:
