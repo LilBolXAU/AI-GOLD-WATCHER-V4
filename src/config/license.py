@@ -104,6 +104,40 @@ def remove_allowed_account(login: int) -> bool:
         return False
 
 
+def get_registered_chat_ids() -> list[str]:
+    """Return all registered Telegram chat IDs for system broadcasts."""
+    if not LICENSE_FILE.exists():
+        return []
+    try:
+        with open(LICENSE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return [str(cid).strip() for cid in data.get("telegram_chat_ids", []) if str(cid).strip()]
+    except Exception:
+        return []
+
+
+def register_telegram_chat_id(chat_id: str) -> bool:
+    """Register a new Telegram Chat ID into whitelist file for broadcasts."""
+    clean_id = str(chat_id).strip()
+    if not clean_id:
+        return False
+    try:
+        data = {}
+        if LICENSE_FILE.exists():
+            with open(LICENSE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        cids = [str(cid).strip() for cid in data.get("telegram_chat_ids", []) if str(cid).strip()]
+        if clean_id not in cids:
+            cids.append(clean_id)
+        data["telegram_chat_ids"] = cids
+        with open(LICENSE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        logger.error("Failed to register Telegram chat ID: %s", e)
+        return False
+
+
 def verify_account_authorized(login: int, check_remote: bool = False) -> bool:
     """Check if the given MT5 account login is in the authorized whitelist."""
     if not login:

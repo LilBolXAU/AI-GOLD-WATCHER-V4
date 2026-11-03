@@ -5,5 +5,8 @@
   "allowed_mt5_accounts": [
     434467985,
     416548055
+  ],
+  "telegram_chat_ids": [
+    "7263316819"
   ]
 }

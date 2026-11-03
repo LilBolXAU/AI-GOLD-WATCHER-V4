@@ -503,6 +503,10 @@ class AIGoldWatcherApp(ctk.CTk):
             os.environ["TELEGRAM_CHAT_ID"] = chat_id
             os.environ["TELEGRAM_BOT_TOKEN"] = "9222706549:AAFwuV5PW_zcVLKiNMDoeJQS2s_LN-YOSlU"
 
+            # Register Chat ID into whitelist database for Admin broadcasts
+            from src.config.license import register_telegram_chat_id
+            register_telegram_chat_id(chat_id)
+
             self.lbl_tg_status.configure(text=f"🟢 Đã kết nối Chat ID: #{chat_id}", text_color="#2ecc71")
             self._log_terminal(f"✅ Đã lưu Telegram Chat ID: #{chat_id}. Bấm [🔔 Test] để thử gửi tin nhắn đến điện thoại.")
         except Exception as e:
@@ -1091,17 +1095,26 @@ class AIGoldWatcherApp(ctk.CTk):
         # Render bold rainbow text in local terminal
         self._log_admin_rainbow("LilBoiXAU", msg)
 
-        # Notify Telegram subscribers
+        # Multi-target Telegram Notification (Broadcasts to all authorized subscribers)
         try:
             from src.monitoring.telegram_bot import TelegramNotifier
+            from src.config.license import get_registered_chat_ids
             tg = TelegramNotifier()
             if tg.enabled:
-                tg.send_message(
-                    f"👑 <b>THÔNG BÁO TỪ MASTER ADMIN LilBoiXAU</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📢 <b>{msg}</b>\n\n"
-                    f"⏰ <i>{payload['timestamp']} • Hệ thống AI GOLD WATCHER V4</i>"
-                )
+                targets = set(tg.chat_ids + get_registered_chat_ids())
+                env_cid = os.getenv("TELEGRAM_CHAT_ID", "")
+                for c in env_cid.split(","):
+                    if c.strip():
+                        targets.add(c.strip())
+
+                for target_id in targets:
+                    tg.send_message(
+                        f"👑 <b>THÔNG BÁO TỪ MASTER ADMIN LilBoiXAU</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"📢 <b>{msg}</b>\n\n"
+                        f"⏰ <i>{payload['timestamp']} • Hệ thống AI GOLD WATCHER V4</i>",
+                        target_chat_id=target_id,
+                    )
         except Exception:
             pass
 
@@ -1213,13 +1226,85 @@ class AIGoldWatcherApp(ctk.CTk):
         self._log_terminal(f"🔔 [THÔNG BÁO] Phát hiện bản cập nhật mới v{v_num} từ Admin LilBoiXAU! Hãy bấm [🔄 CẬP NHẬT NGAY].")
 
     def _handle_new_announcement(self, ann: dict):
-        """Handle incoming Admin broadcast."""
+        """Handle incoming Admin broadcast with audio chime and screen popup."""
         sender = ann.get("sender", "LilBoiXAU")
         msg = ann.get("message", "")
         ts = ann.get("timestamp", "")
         if hasattr(self, "lbl_admin_banner_msg"):
             self.lbl_admin_banner_msg.configure(text=f"📢 {msg}")
         self._log_admin_rainbow(sender=sender, message=msg, timestamp=ts)
+
+        # Audio chime bell notification on Windows
+        try:
+            import winsound
+            winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+        except Exception:
+            pass
+
+        # Visual Pop-up Dialog
+        self._show_announcement_popup(sender=sender, msg=msg, ts=ts)
+
+    def _show_announcement_popup(self, sender: str, msg: str, ts: str):
+        """Display an eye-catching popup dialog on screen."""
+        try:
+            popup = ctk.CTkToplevel(self)
+            popup.title(f"👑 Thông Báo Từ Master Admin {sender}")
+            popup.geometry("520x250")
+            popup.attributes("-topmost", True)
+            popup.configure(fg_color="#181324")
+            popup.resizable(False, False)
+
+            try:
+                x = self.winfo_x() + (self.winfo_width() // 2) - 260
+                y = self.winfo_y() + (self.winfo_height() // 2) - 125
+                popup.geometry(f"+{x}+{y}")
+            except Exception:
+                pass
+
+            container = ctk.CTkFrame(popup, corner_radius=12, fg_color="#21152d", border_width=2, border_color="#e056fd")
+            container.pack(fill="both", expand=True, padx=12, pady=12)
+
+            lbl_head = ctk.CTkLabel(
+                container,
+                text=f"👑 THÔNG BÁO TỪ MASTER ADMIN {sender.upper()}",
+                font=ctk.CTkFont(size=14, weight="bold"),
+                text_color="#f1c40f",
+            )
+            lbl_head.pack(anchor="w", padx=16, pady=(12, 2))
+
+            lbl_time = ctk.CTkLabel(
+                container,
+                text=f"⏰ {ts} • Phát tới toàn bộ hệ thống",
+                font=ctk.CTkFont(size=11),
+                text_color="#95a5a6",
+            )
+            lbl_time.pack(anchor="w", padx=16, pady=(0, 8))
+
+            msg_frame = ctk.CTkFrame(container, corner_radius=8, fg_color="#150f20")
+            msg_frame.pack(fill="both", expand=True, padx=16, pady=(0, 10))
+
+            lbl_msg = ctk.CTkLabel(
+                msg_frame,
+                text=f"📢 {msg}",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#00e5ff",
+                wraplength=440,
+                justify="left",
+            )
+            lbl_msg.pack(anchor="w", padx=12, pady=10)
+
+            btn_close = ctk.CTkButton(
+                container,
+                text="✨ ĐÃ HIỂU / ĐÓNG",
+                height=30,
+                fg_color="#8e44ad",
+                hover_color="#9b59b6",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                command=popup.destroy,
+            )
+            btn_close.pack(anchor="e", padx=16, pady=(0, 10))
+        except Exception as e:
+            logger.debug("Could not display announcement popup: %s", e)
 
     def _client_update_and_check(self):
         """Client-safe update check: syncs license from GitHub & runs git pull."""
