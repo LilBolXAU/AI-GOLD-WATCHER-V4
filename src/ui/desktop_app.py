@@ -230,9 +230,9 @@ class AIGoldWatcherApp(ctk.CTk):
         self.main_container.rowconfigure(0, weight=1)
 
         # =====================================================================
-        # LEFT COLUMN: Controls & Settings & Dynamic License
+        # LEFT COLUMN: Controls & Settings & Dynamic License (Scrollable for all screen sizes)
         # =====================================================================
-        left_col = ctk.CTkFrame(self.main_container, corner_radius=10, fg_color="#1a1c23")
+        left_col = ctk.CTkScrollableFrame(self.main_container, corner_radius=10, fg_color="#1a1c23")
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
 
         # Box 1: Core Action Buttons
@@ -447,9 +447,32 @@ class AIGoldWatcherApp(ctk.CTk):
         self.lbl_admin_banner_msg.pack(anchor="w", padx=12, pady=(0, 6))
         self.admin_banner_frame.pack(fill="x", padx=15, pady=(0, 6))
 
+        # Admin Broadcast Chat Box (right above the terminal!)
+        self.admin_chat_bar = ctk.CTkFrame(right_col, fg_color="transparent")
+        self.ent_admin_broadcast = ctk.CTkEntry(
+            self.admin_chat_bar,
+            placeholder_text="💬 Nhập tin nhắn gửi tới bạn bè (chữ cầu vồng to & nảy chuông)...",
+            height=36,
+            font=ctk.CTkFont(size=12),
+        )
+        self.ent_admin_broadcast.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self.btn_broadcast = ctk.CTkButton(
+            self.admin_chat_bar,
+            text="🌈 Gửi tin nhắn",
+            width=130,
+            height=36,
+            fg_color="#8e44ad",
+            hover_color="#9b59b6",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._send_admin_broadcast,
+        )
+        self.btn_broadcast.pack(side="right")
+        self.admin_chat_bar.pack(fill="x", padx=15, pady=(0, 8))
+
         # Terminal Log
-        lbl_term = ctk.CTkLabel(right_col, text="NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (LIVE SIGNALS)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
-        lbl_term.pack(anchor="w", padx=15, pady=(4, 4))
+        self.lbl_term = ctk.CTkLabel(right_col, text="NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (LIVE SIGNALS)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
+        self.lbl_term.pack(anchor="w", padx=15, pady=(4, 4))
 
         self.term_box = ctk.CTkTextbox(
             right_col,
@@ -581,6 +604,13 @@ class AIGoldWatcherApp(ctk.CTk):
         else:
             self._render_pending_panel()
 
+        # Show/hide Admin chat bar on right column based on role
+        if hasattr(self, "admin_chat_bar"):
+            if new_role == "admin":
+                self.admin_chat_bar.pack(fill="x", padx=15, pady=(0, 8), before=self.lbl_term)
+            else:
+                self.admin_chat_bar.pack_forget()
+
     def _render_admin_panel(self):
         """Render full Admin Whitelist & Push controls for LilBoiXAU."""
         self.license_badge.configure(
@@ -655,39 +685,6 @@ class AIGoldWatcherApp(ctk.CTk):
             command=self._git_push,
         )
         self.btn_push.pack(side="right", fill="x", expand=True, padx=(3, 0))
-
-        # Admin Rainbow Chat Broadcast
-        sep_chat = ctk.CTkFrame(self.license_container, height=1, fg_color="#34495e")
-        sep_chat.pack(fill="x", pady=(10, 6))
-
-        lbl_chat = ctk.CTkLabel(
-            self.license_container,
-            text="📢 CHAT ADMIN CẦU VỒNG (PHÁT THÔNG BÁO)",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#e056fd",
-        )
-        lbl_chat.pack(anchor="w", pady=(0, 4))
-
-        chat_input_box = ctk.CTkFrame(self.license_container, fg_color="transparent")
-        chat_input_box.pack(fill="x", pady=2)
-
-        self.ent_admin_broadcast = ctk.CTkEntry(
-            chat_input_box,
-            placeholder_text="Nhập thông báo gửi đến người dùng...",
-            height=32,
-        )
-        self.ent_admin_broadcast.pack(side="left", fill="x", expand=True, padx=(0, 4))
-
-        self.btn_broadcast = ctk.CTkButton(
-            chat_input_box,
-            text="🌈 Gửi thông báo",
-            width=115,
-            height=32,
-            fg_color="#8e44ad",
-            hover_color="#9b59b6",
-            command=self._send_admin_broadcast,
-        )
-        self.btn_broadcast.pack(side="right")
 
         if not self.is_running:
             self.btn_start.configure(
