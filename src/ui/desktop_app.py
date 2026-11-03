@@ -23,10 +23,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.config.license import (
+    is_admin_account,
     verify_account_authorized,
     get_allowed_accounts,
     add_allowed_account,
     remove_allowed_account,
+    sync_remote_license,
 )
 
 # Setup appearance
@@ -67,6 +69,10 @@ class AIGoldWatcherApp(ctk.CTk):
         self.stop_event = threading.Event()
         self.log_queue = queue.Queue()
 
+        # Dynamic Role state: "admin" | "client_auth" | "client_unauth" | "pending"
+        self.current_role: Optional[str] = None
+        self.current_account: Optional[int] = None
+
         # Wire logging to GUI
         self.log_handler = GuiLogHandler(self.log_queue)
         formatter = logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
@@ -87,7 +93,7 @@ class AIGoldWatcherApp(ctk.CTk):
         self.after(1000, self._refresh_telemetry)
 
         self._log_terminal("🌟 AI GOLD WATCHER V4 Desktop App khởi động thành công!")
-        self._log_terminal("🔑 Quyền quản trị: LilBoiXAU | Sẵn sàng giao dịch XAUUSDm.")
+        self._log_terminal("🔑 Sẵn sàng kết nối MT5 XAUUSDm...")
 
     # -------------------------------------------------------------------------
     # UI BUILDERS
@@ -135,13 +141,13 @@ class AIGoldWatcherApp(ctk.CTk):
 
         self.license_badge = ctk.CTkLabel(
             badges_box,
-            text="🔑 LICENSE: ACTIVE (LilBoiXAU)",
+            text="⏳ ĐANG KIỂM TRA QUYỀN...",
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#34495e",
             corner_radius=6,
             padx=10,
             pady=4,
-            text_color="#f39c12",
+            text_color="#bdc3c7",
         )
         self.license_badge.pack(side="right", padx=5)
 
@@ -181,7 +187,7 @@ class AIGoldWatcherApp(ctk.CTk):
         self.main_container.rowconfigure(0, weight=1)
 
         # =====================================================================
-        # LEFT COLUMN: Controls & Settings & License
+        # LEFT COLUMN: Controls & Settings & Dynamic License
         # =====================================================================
         left_col = ctk.CTkFrame(self.main_container, corner_radius=10, fg_color="#1a1c23")
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
@@ -253,44 +259,10 @@ class AIGoldWatcherApp(ctk.CTk):
         self.chk_exhaust.select()
         self.chk_exhaust.pack(anchor="w", padx=15, pady=4)
 
-        # Box 3: License & Whitelist Manager
-        sep2 = ctk.CTkFrame(left_col, height=2, fg_color="#2c3e50")
-        sep2.pack(fill="x", padx=15, pady=12)
-
-        lbl_lic = ctk.CTkLabel(left_col, text="QUẢN LÝ BẢN QUYỀN MT5 (WHITELIST)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#f1c40f")
-        lbl_lic.pack(anchor="w", padx=15, pady=(0, 6))
-
-        acc_input_box = ctk.CTkFrame(left_col, fg_color="transparent")
-        acc_input_box.pack(fill="x", padx=15, pady=2)
-
-        self.ent_account = ctk.CTkEntry(acc_input_box, placeholder_text="Nhập số MT5 bạn bè...", height=32)
-        self.ent_account.pack(side="left", fill="x", expand=True, padx=(0, 4))
-
-        self.btn_add_acc = ctk.CTkButton(acc_input_box, text="+ Cấp quyền", width=80, height=32, fg_color="#2980b9", command=self._add_account_license)
-        self.btn_add_acc.pack(side="right", padx=2)
-
-        self.btn_rem_acc = ctk.CTkButton(acc_input_box, text="- Thu hồi", width=70, height=32, fg_color="#7f8c8d", hover_color="#c0392b", command=self._remove_account_license)
-        self.btn_rem_acc.pack(side="right", padx=2)
-
-        self.lbl_allowed_list = ctk.CTkLabel(
-            left_col,
-            text=f"Tài khoản duyệt: {', '.join(str(a) for a in get_allowed_accounts())}",
-            font=ctk.CTkFont(size=11),
-            text_color="#95a5a6",
-            wraplength=380,
-            justify="left",
-        )
-        self.lbl_allowed_list.pack(anchor="w", padx=15, pady=4)
-
-        # Sync buttons
-        sync_box = ctk.CTkFrame(left_col, fg_color="transparent")
-        sync_box.pack(fill="x", padx=15, pady=(8, 15))
-
-        self.btn_pull = ctk.CTkButton(sync_box, text="🔄 Tải cập nhật (Pull)", height=32, fg_color="#34495e", command=self._git_pull)
-        self.btn_pull.pack(side="left", fill="x", expand=True, padx=(0, 3))
-
-        self.btn_push = ctk.CTkButton(sync_box, text="📤 Đẩy code (Push)", height=32, fg_color="#34495e", command=self._git_push)
-        self.btn_push.pack(side="right", fill="x", expand=True, padx=(3, 0))
+        # Box 3: Dynamic Role Container (Admin vs Client)
+        self.license_container = ctk.CTkFrame(left_col, fg_color="transparent")
+        self.license_container.pack(fill="x", padx=15, pady=(10, 15))
+        self._update_role_ui(None)
 
         # =====================================================================
         # RIGHT COLUMN: Open Positions & Live Activity Terminal
@@ -336,11 +308,283 @@ class AIGoldWatcherApp(ctk.CTk):
         self.term_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
     # -------------------------------------------------------------------------
+    # DYNAMIC ROLE-BASED UI MANAGEMENT
+    # -------------------------------------------------------------------------
+    def _update_role_ui(self, login: Optional[int], force: bool = False):
+        """
+        Dynamically render Admin or Client view based on MT5 account number.
+        - Admin (#434467985): Full whitelist manager + Push code buttons.
+        - Client (Authorized): Simplified view + Check updates button (NO admin controls).
+        - Client (Unauthorized): Bot locked, warning card + Contact admin message.
+        """
+        if login is None:
+            new_role = "pending"
+        elif is_admin_account(login):
+            new_role = "admin"
+        else:
+            is_auth = verify_account_authorized(login)
+            new_role = "client_auth" if is_auth else "client_unauth"
+
+        if not force and self.current_role == new_role and self.current_account == login:
+            return
+
+        self.current_role = new_role
+        self.current_account = login
+
+        # Clear container
+        for widget in self.license_container.winfo_children():
+            widget.destroy()
+
+        sep = ctk.CTkFrame(self.license_container, height=2, fg_color="#2c3e50")
+        sep.pack(fill="x", pady=(0, 10))
+
+        if new_role == "admin":
+            self._render_admin_panel()
+        elif new_role == "client_auth":
+            self._render_client_authorized_panel(login)
+        elif new_role == "client_unauth":
+            self._render_client_unauthorized_panel(login)
+        else:
+            self._render_pending_panel()
+
+    def _render_admin_panel(self):
+        """Render full Admin Whitelist & Push controls for LilBoiXAU."""
+        self.license_badge.configure(
+            text="👑 ADMIN: LilBoiXAU",
+            text_color="#f1c40f",
+            fg_color="#34495e",
+        )
+
+        lbl_lic = ctk.CTkLabel(
+            self.license_container,
+            text="👑 QUẢN TRỊ BẢN QUYỀN (ADMIN LilBoiXAU)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f1c40f",
+        )
+        lbl_lic.pack(anchor="w", pady=(0, 6))
+
+        acc_input_box = ctk.CTkFrame(self.license_container, fg_color="transparent")
+        acc_input_box.pack(fill="x", pady=2)
+
+        self.ent_account = ctk.CTkEntry(acc_input_box, placeholder_text="Nhập số MT5 bạn bè...", height=32)
+        self.ent_account.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        self.btn_add_acc = ctk.CTkButton(
+            acc_input_box,
+            text="+ Cấp quyền",
+            width=80,
+            height=32,
+            fg_color="#2980b9",
+            command=self._add_account_license,
+        )
+        self.btn_add_acc.pack(side="right", padx=2)
+
+        self.btn_rem_acc = ctk.CTkButton(
+            acc_input_box,
+            text="- Thu hồi",
+            width=70,
+            height=32,
+            fg_color="#7f8c8d",
+            hover_color="#c0392b",
+            command=self._remove_account_license,
+        )
+        self.btn_rem_acc.pack(side="right", padx=2)
+
+        self.lbl_allowed_list = ctk.CTkLabel(
+            self.license_container,
+            text=f"Tài khoản duyệt: {', '.join(str(a) for a in get_allowed_accounts())}",
+            font=ctk.CTkFont(size=11),
+            text_color="#95a5a6",
+            wraplength=380,
+            justify="left",
+        )
+        self.lbl_allowed_list.pack(anchor="w", pady=4)
+
+        sync_box = ctk.CTkFrame(self.license_container, fg_color="transparent")
+        sync_box.pack(fill="x", pady=(8, 0))
+
+        self.btn_pull = ctk.CTkButton(
+            sync_box,
+            text="🔄 Tải cập nhật (Pull)",
+            height=32,
+            fg_color="#34495e",
+            command=self._git_pull,
+        )
+        self.btn_pull.pack(side="left", fill="x", expand=True, padx=(0, 3))
+
+        self.btn_push = ctk.CTkButton(
+            sync_box,
+            text="📤 Đẩy code (Push)",
+            height=32,
+            fg_color="#2980b9",
+            hover_color="#3498db",
+            command=self._git_push,
+        )
+        self.btn_push.pack(side="right", fill="x", expand=True, padx=(3, 0))
+
+        if not self.is_running:
+            self.btn_start.configure(
+                state="normal",
+                text="▶ BẬT BOT TỰ ĐỘNG (START)",
+                fg_color="#27ae60",
+                hover_color="#2ecc71",
+            )
+
+    def _render_client_authorized_panel(self, login: int):
+        """Render client view with valid license (NO admin controls, NO push button)."""
+        self.license_badge.configure(
+            text="🔑 BẢN QUYỀN: HỢP LỆ",
+            text_color="#2ecc71",
+            fg_color="#1e3d2f",
+        )
+
+        lbl_lic = ctk.CTkLabel(
+            self.license_container,
+            text="🔑 BẢN QUYỀN KHÁCH HÀNG (CLIENT LICENSE)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#2ecc71",
+        )
+        lbl_lic.pack(anchor="w", pady=(0, 6))
+
+        card = ctk.CTkFrame(self.license_container, corner_radius=8, fg_color="#1e222d")
+        card.pack(fill="x", pady=(0, 8))
+
+        ctk.CTkLabel(
+            card,
+            text=f"👤 Tài khoản MT5: #{login}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#ecf0f1",
+        ).pack(anchor="w", padx=12, pady=(8, 2))
+
+        ctk.CTkLabel(
+            card,
+            text="🛡️ Trạng thái: ✅ ĐÃ KÍCH HOẠT HỢP LỆ",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#2ecc71",
+        ).pack(anchor="w", padx=12, pady=2)
+
+        ctk.CTkLabel(
+            card,
+            text="👑 Nhà phát triển: LilBoiXAU Edition",
+            font=ctk.CTkFont(size=11),
+            text_color="#f1c40f",
+        ).pack(anchor="w", padx=12, pady=(2, 8))
+
+        btn_update = ctk.CTkButton(
+            self.license_container,
+            text="🔄 Kiểm tra & Cập nhật phiên bản mới từ Admin",
+            height=34,
+            fg_color="#2980b9",
+            hover_color="#3498db",
+            command=self._client_update_and_check,
+        )
+        btn_update.pack(fill="x")
+
+        if not self.is_running:
+            self.btn_start.configure(
+                state="normal",
+                text="▶ BẬT BOT TỰ ĐỘNG (START)",
+                fg_color="#27ae60",
+                hover_color="#2ecc71",
+            )
+
+    def _render_client_unauthorized_panel(self, login: int):
+        """Render locked client view when account is unauthorized."""
+        self.license_badge.configure(
+            text="⛔ CHƯA CẤP QUYỀN",
+            text_color="#e74c3c",
+            fg_color="#4a1c1c",
+        )
+
+        lbl_lic = ctk.CTkLabel(
+            self.license_container,
+            text="⛔ BẢN QUYỀN CHƯA KÍCH HOẠT",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#e74c3c",
+        )
+        lbl_lic.pack(anchor="w", pady=(0, 6))
+
+        card = ctk.CTkFrame(self.license_container, corner_radius=8, fg_color="#2d1a1a")
+        card.pack(fill="x", pady=(0, 8))
+
+        ctk.CTkLabel(
+            card,
+            text=f"👤 Tài khoản MT5: #{login}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#ecf0f1",
+        ).pack(anchor="w", padx=12, pady=(8, 2))
+
+        ctk.CTkLabel(
+            card,
+            text="❌ Trạng thái: CHƯA CÓ TRONG WHITELIST",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#e74c3c",
+        ).pack(anchor="w", padx=12, pady=2)
+
+        ctk.CTkLabel(
+            card,
+            text="⚠️ Vui lòng gửi số MT5 trên cho Admin LilBoiXAU để kích hoạt bot.",
+            font=ctk.CTkFont(size=11),
+            text_color="#e67e22",
+            wraplength=360,
+            justify="left",
+        ).pack(anchor="w", padx=12, pady=(2, 8))
+
+        btn_check = ctk.CTkButton(
+            self.license_container,
+            text="🔄 Kiểm tra lại trạng thái bản quyền",
+            height=34,
+            fg_color="#c0392b",
+            hover_color="#e74c3c",
+            command=self._client_update_and_check,
+        )
+        btn_check.pack(fill="x")
+
+        # Lock Start button completely
+        if not self.is_running:
+            self.btn_start.configure(
+                state="disabled",
+                text="⛔ KHÓA: CHƯA CẤP QUYỀN",
+                fg_color="#555555",
+            )
+
+    def _render_pending_panel(self):
+        """Render waiting panel when MT5 is not yet connected."""
+        self.license_badge.configure(
+            text="⏳ CHỜ KẾT NỐI MT5...",
+            text_color="#bdc3c7",
+            fg_color="#2c3e50",
+        )
+
+        lbl_lic = ctk.CTkLabel(
+            self.license_container,
+            text="BẢN QUYỀN HỆ THỐNG",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#bdc3c7",
+        )
+        lbl_lic.pack(anchor="w", pady=(0, 6))
+
+        ctk.CTkLabel(
+            self.license_container,
+            text="ℹ️ Hãy mở phần mềm MetaTrader 5 để xác thực bản quyền.",
+            font=ctk.CTkFont(size=12),
+            text_color="#7f8c8d",
+            wraplength=380,
+            justify="left",
+        ).pack(anchor="w", pady=4)
+
+    # -------------------------------------------------------------------------
     # CORE BOT EXECUTION (THREADED)
     # -------------------------------------------------------------------------
     def _toggle_bot_running(self):
         """Start or stop the automated trading bot thread."""
         if not self.is_running:
+            # Pre-flight authorization check
+            if self.current_account and not is_admin_account(self.current_account):
+                if not verify_account_authorized(self.current_account):
+                    self._log_terminal(f"❌ VETO: Tài khoản #{self.current_account} chưa được cấp quyền!")
+                    return
+
             self.is_running = True
             self.stop_event.clear()
             self.btn_start.configure(text="⏹ DỪNG BOT (STOP)", fg_color="#c0392b", hover_color="#e74c3c")
@@ -356,27 +600,27 @@ class AIGoldWatcherApp(ctk.CTk):
             self.is_running = False
             self.stop_event.set()
             self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60", hover_color="#2ecc71")
-            self._log_terminal("🛑 Đã gửi lệnh dừng bot.")
+            self._log_terminal("⏹ Đã gửi tín hiệu dừng Bot an toàn.")
 
     def _toggle_bot_pause(self):
-        """Pause or resume trade evaluation."""
+        """Pause or resume trading execution."""
         self.is_paused = not self.is_paused
         if self.is_paused:
-            self.btn_pause.configure(text="▶ TIẾP TỤC GIAO DỊCH (RESUME)", fg_color="#2980b9", hover_color="#3498db")
-            self._log_terminal("⏸ BOT ĐÃ TẠM DỪNG: Không quét hoặc mở lệnh mới.")
+            self.btn_pause.configure(text="▶ TIẾP TỤC GIAO DỊCH (RESUME)", fg_color="#2980b9")
+            self._log_terminal("⏸ Bot đã tạm dừng vào lệnh mới.")
         else:
-            self.btn_pause.configure(text="⏸ TẠM DỪNG GIAO DỊCH (PAUSE)", fg_color="#d35400", hover_color="#e67e22")
-            self._log_terminal("▶ BOT ĐÃ TIẾP TỤC: Đang quét nến M5 tiếp theo...")
+            self.btn_pause.configure(text="⏸ TẠM DỪNG GIAO DỊCH (PAUSE)", fg_color="#d35400")
+            self._log_terminal("▶ Bot đã tiếp tục quét và vào lệnh bình thường.")
 
     def _emergency_close_all(self):
-        """Close all open MT5 positions immediately."""
-        self._log_terminal("🚨 KÍCH HOẠT ĐÓNG KHẨN CẤP: Đang đóng tất cả vị thế đang mở...")
+        """Emergency kill-switch: Closes all open XAUUSDm positions immediately."""
+        self._log_terminal("🚨 KHẨN CẤP: Đang đóng toàn bộ vị thế XAUUSDm...")
         try:
             import MetaTrader5 as mt5
+            from src.execution.mt5_bridge import MT5OrderBridge
             if mt5.initialize():
                 positions = mt5.positions_get(symbol="XAUUSDm")
                 if positions:
-                    from src.execution.mt5_order_bridge import MT5OrderBridge
                     bridge = MT5OrderBridge(symbol="XAUUSDm")
                     for p in positions:
                         bridge.close_position(p.ticket)
@@ -413,7 +657,7 @@ class AIGoldWatcherApp(ctk.CTk):
             self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60")
 
     # -------------------------------------------------------------------------
-    # LICENSE & WHITELIST ACTIONS
+    # LICENSE & WHITELIST ACTIONS (ADMIN ONLY)
     # -------------------------------------------------------------------------
     def _add_account_license(self):
         acc_text = self.ent_account.get().strip()
@@ -452,14 +696,47 @@ class AIGoldWatcherApp(ctk.CTk):
 
     def _git_push(self):
         """Trigger git push to share update."""
-        self._log_terminal("📤 Đang đẩy mã nguồn mới lên GitHub cho bạn bè...")
+        self._log_terminal("📤 Đang lưu thay đổi và đẩy lên GitHub cho bạn bè...")
         try:
             subprocess.run(["git", "add", "."], capture_output=True, timeout=10)
-            subprocess.run(["git", "commit", "-m", "App Auto-Update Push"], capture_output=True, timeout=10)
-            res = subprocess.run(["git", "push", "origin", "main"], capture_output=True, text=True, timeout=20)
-            self._log_terminal(f"✅ Kết quả đẩy code:\n{res.stdout or res.stderr or 'Thành công!'}")
+            subprocess.run(["git", "commit", "-m", "App License & Update Push"], capture_output=True, timeout=10)
+            res = subprocess.run(["git", "push", "-u", "origin", "main"], capture_output=True, text=True, timeout=20)
+            err = (res.stderr or "").strip()
+            out = (res.stdout or "").strip()
+            if "Repository not found" in err:
+                self._log_terminal("❌ Chưa tìm thấy repo trên GitHub! Vui lòng vào https://github.com/LilBoiXAU bấm '+' -> New repository, đặt tên 'AI-GOLD-WATCHER-V4' rồi bấm Đẩy code lại.")
+            elif res.returncode == 0:
+                self._log_terminal("✅ Đẩy code và danh sách bản quyền lên GitHub thành công! Bạn bè đã có thể bấm Tải cập nhật.")
+            else:
+                self._log_terminal(f"ℹ️ Thông tin đẩy code:\n{out or err}")
         except Exception as e:
             self._log_terminal(f"❌ Lỗi đẩy code: {e}")
+
+    def _client_update_and_check(self):
+        """Client-safe update check: syncs license from GitHub & runs git pull."""
+        self._log_terminal("🔄 Đang đồng bộ và kiểm tra bản quyền từ máy chủ Admin...")
+        try:
+            synced = sync_remote_license(timeout=3.0)
+            if synced:
+                self._log_terminal(f"✅ Đã nhận danh sách cấp quyền mới nhất từ Admin: {len(synced)} tài khoản.")
+
+            if Path(".git").exists():
+                res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, timeout=15)
+                out = (res.stdout or "").strip() or (res.stderr or "").strip()
+                if "Already up to date" in out:
+                    self._log_terminal("📦 Mã nguồn của bạn đã là phiên bản mới nhất!")
+                else:
+                    self._log_terminal(f"📦 Đã tải bản cập nhật mới:\n{out}")
+
+            if self.current_account:
+                is_auth = verify_account_authorized(self.current_account)
+                self._update_role_ui(self.current_account, force=True)
+                if is_auth:
+                    self._log_terminal(f"🎉 Kích hoạt thành công! MT5 #{self.current_account} đã được cấp phép.")
+                else:
+                    self._log_terminal(f"⚠️ MT5 #{self.current_account} vẫn chưa có trong danh sách của Admin LilBoiXAU.")
+        except Exception as e:
+            self._log_terminal(f"❌ Lỗi kiểm tra cập nhật: {e}")
 
     # -------------------------------------------------------------------------
     # TELEMETRY & PERIODIC UPDATES
@@ -488,6 +765,9 @@ class AIGoldWatcherApp(ctk.CTk):
             if mt5.initialize():
                 acc = mt5.account_info()
                 if acc:
+                    login = int(acc.login)
+                    self._update_role_ui(login)
+
                     bal = float(acc.balance)
                     eq = float(acc.equity)
                     pnl = eq - bal

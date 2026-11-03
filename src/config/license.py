@@ -4,16 +4,32 @@ Administered by LilBoiXAU.
 """
 
 import json
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Optional
+import urllib.request
 
 logger = logging.getLogger("v4_trading.license")
 
 LICENSE_FILE = Path("allowed_accounts.json")
+ADMIN_ACCOUNTS = [434467985]
+GITHUB_RAW_LICENSE_URL = (
+    "https://raw.githubusercontent.com/LilBoiXAU/AI-GOLD-WATCHER-V4/main/allowed_accounts.json"
+)
+
+
+def is_admin_account(login: int | str | None) -> bool:
+    """Return True if login belongs to the Master Admin (LilBoiXAU)."""
+    if not login:
+        return False
+    try:
+        return int(login) in ADMIN_ACCOUNTS
+    except (ValueError, TypeError):
+        return False
 
 
 def get_allowed_accounts() -> list[int]:
-    """Return list of authorized MT5 account numbers."""
+    """Return list of authorized MT5 account numbers from local file."""
     if not LICENSE_FILE.exists():
         return []
     try:
@@ -23,6 +39,30 @@ def get_allowed_accounts() -> list[int]:
     except Exception as e:
         logger.warning("Error reading license file: %s", e)
         return []
+
+
+def sync_remote_license(timeout: float = 2.5) -> Optional[list[int]]:
+    """
+    Attempt to fetch the latest authorized accounts from the master GitHub repository.
+    Saves to local allowed_accounts.json if successful.
+    """
+    try:
+        req = urllib.request.Request(
+            GITHUB_RAW_LICENSE_URL,
+            headers={"User-Agent": "AIGoldWatcherV4-LicenseClient"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                raw_bytes = resp.read()
+                data = json.loads(raw_bytes.decode("utf-8"))
+                accounts = [int(acc) for acc in data.get("allowed_mt5_accounts", []) if str(acc).isdigit()]
+                with open(LICENSE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                logger.info("Successfully synchronized license whitelist from GitHub.")
+                return accounts
+    except Exception as e:
+        logger.debug("Remote license sync skipped/unavailable: %s", e)
+    return None
 
 
 def add_allowed_account(login: int) -> bool:
@@ -64,10 +104,23 @@ def remove_allowed_account(login: int) -> bool:
         return False
 
 
-def verify_account_authorized(login: int) -> bool:
+def verify_account_authorized(login: int, check_remote: bool = False) -> bool:
     """Check if the given MT5 account login is in the authorized whitelist."""
-    if not LICENSE_FILE.exists():
+    if not login:
+        return False
+
+    # Master Admin is always authorized
+    if is_admin_account(login):
         return True
+
+    # Optionally attempt remote verification from master GitHub repo
+    if check_remote:
+        remote_accounts = sync_remote_license()
+        if remote_accounts is not None:
+            return int(login) in remote_accounts
+
+    if not LICENSE_FILE.exists():
+        return False
 
     try:
         with open(LICENSE_FILE, "r", encoding="utf-8") as f:
@@ -81,4 +134,4 @@ def verify_account_authorized(login: int) -> bool:
         return int(login) in allowed_normalized
     except Exception as e:
         logger.warning("Error reading license file: %s", e)
-        return True
+        return False

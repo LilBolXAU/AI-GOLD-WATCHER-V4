@@ -1,19 +1,26 @@
 """
-Unit tests for Desktop Application UI components.
+Unit tests for Desktop Application UI components and dynamic licensing.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config.license import (
+    is_admin_account,
     verify_account_authorized,
     get_allowed_accounts,
     add_allowed_account,
     remove_allowed_account,
+    sync_remote_license,
 )
 
 
 def test_license_management_flow():
+    # Admin check
+    assert is_admin_account(434467985) is True
+    assert is_admin_account(12345678) is False
+    assert is_admin_account(None) is False
+
     # Test adding an account
     test_acc = 88888888
     add_allowed_account(test_acc)
@@ -30,3 +37,10 @@ def test_desktop_app_import():
     import src.ui.desktop_app as app_mod
     assert hasattr(app_mod, "AIGoldWatcherApp")
     assert hasattr(app_mod, "GuiLogHandler")
+
+
+def test_sync_remote_license_graceful_fallback():
+    # When URL is unreachable, it should gracefully return None without crashing
+    with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+        res = sync_remote_license(timeout=0.1)
+        assert res is None
