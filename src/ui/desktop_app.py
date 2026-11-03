@@ -59,8 +59,8 @@ class AIGoldWatcherApp(ctk.CTk):
 
         # Window settings
         self.title("AI GOLD WATCHER V4 — Institutional Gold Scalper (LilBoiXAU Edition)")
-        self.geometry("1100x820")
-        self.minsize(980, 720)
+        self.geometry("1120x860")
+        self.minsize(980, 750)
 
         # State management
         self.is_running = False
@@ -231,17 +231,20 @@ class AIGoldWatcherApp(ctk.CTk):
 
         # Box 2: Trading Parameters & Safeguards
         sep1 = ctk.CTkFrame(left_col, height=2, fg_color="#2c3e50")
-        sep1.pack(fill="x", padx=15, pady=12)
+        sep1.pack(fill="x", padx=15, pady=10)
 
         lbl_settings = ctk.CTkLabel(left_col, text="THIẾT LẬP CHIẾN THUẬT & AN TOÀN", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
         lbl_settings.pack(anchor="w", padx=15, pady=(0, 6))
 
-        # Mode selector
+        # Mode selector (Live Demo vs Live Paper 25h Replay)
         lbl_mode = ctk.CTkLabel(left_col, text="Chế độ hoạt động:", font=ctk.CTkFont(size=12), text_color="#bdc3c7")
         lbl_mode.pack(anchor="w", padx=15, pady=0)
         self.mode_menu = ctk.CTkOptionMenu(
             left_col,
-            values=["Live Demo MT5 (Quét 5s/lần)", "Paper Replay (Test 300 nến M5)"],
+            values=[
+                "🔴 Live Demo MT5 (Quét 5s/lần theo thời gian thực)",
+                "⚡ Live Paper (Test bot trong 25 giờ vừa qua)",
+            ],
             height=32,
         )
         self.mode_menu.pack(fill="x", padx=15, pady=(2, 8))
@@ -249,19 +252,86 @@ class AIGoldWatcherApp(ctk.CTk):
         # Checkboxes for guards
         self.chk_be = ctk.CTkCheckBox(left_col, text="Auto Break-Even (Hòa vốn @ 38% TP + $0.25)", font=ctk.CTkFont(size=12))
         self.chk_be.select()
-        self.chk_be.pack(anchor="w", padx=15, pady=4)
+        self.chk_be.pack(anchor="w", padx=15, pady=3)
 
         self.chk_runner = ctk.CTkCheckBox(left_col, text="Gồng Lãi Động (Trailing Runner nới TP +$5.00)", font=ctk.CTkFont(size=12))
         self.chk_runner.select()
-        self.chk_runner.pack(anchor="w", padx=15, pady=4)
+        self.chk_runner.pack(anchor="w", padx=15, pady=3)
 
         self.chk_exhaust = ctk.CTkCheckBox(left_col, text="Bộ Lọc Kiệt Sức (Chặn bán đáy / mua đỉnh)", font=ctk.CTkFont(size=12))
         self.chk_exhaust.select()
-        self.chk_exhaust.pack(anchor="w", padx=15, pady=4)
+        self.chk_exhaust.pack(anchor="w", padx=15, pady=3)
 
-        # Box 3: Dynamic Role Container (Admin vs Client)
+        # Box 3: Telegram Alerts Connection
+        sep_tg = ctk.CTkFrame(left_col, height=2, fg_color="#2c3e50")
+        sep_tg.pack(fill="x", padx=15, pady=10)
+
+        lbl_tg = ctk.CTkLabel(
+            left_col,
+            text="📱 BÁO ĐỘNG TELEGRAM (100% MIỄN PHÍ)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#3498db",
+        )
+        lbl_tg.pack(anchor="w", padx=15, pady=(0, 2))
+
+        # Check existing chat ID
+        curr_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+        if not curr_chat_id and Path(".env").exists():
+            for line in Path(".env").read_text(encoding="utf-8").splitlines():
+                if line.startswith("TELEGRAM_CHAT_ID="):
+                    curr_chat_id = line.split("=", 1)[1].strip()
+
+        status_text = f"🟢 Đã kết nối Chat ID: #{curr_chat_id}" if curr_chat_id else "⚪ Chưa kết nối (Nhập Chat ID bên dưới)"
+        status_color = "#2ecc71" if curr_chat_id else "#e74c3c"
+        self.lbl_tg_status = ctk.CTkLabel(
+            left_col,
+            text=status_text,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=status_color,
+        )
+        self.lbl_tg_status.pack(anchor="w", padx=15, pady=(0, 4))
+
+        tg_row = ctk.CTkFrame(left_col, fg_color="transparent")
+        tg_row.pack(fill="x", padx=15, pady=2)
+
+        self.ent_tg_chat_id = ctk.CTkEntry(tg_row, placeholder_text="Nhập Chat ID...", height=32)
+        if curr_chat_id:
+            self.ent_tg_chat_id.insert(0, curr_chat_id)
+        self.ent_tg_chat_id.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        self.btn_save_tg = ctk.CTkButton(
+            tg_row,
+            text="💾 Lưu",
+            width=55,
+            height=32,
+            fg_color="#2980b9",
+            command=self._save_telegram_id,
+        )
+        self.btn_save_tg.pack(side="left", padx=2)
+
+        self.btn_test_tg = ctk.CTkButton(
+            tg_row,
+            text="🔔 Test",
+            width=55,
+            height=32,
+            fg_color="#27ae60",
+            hover_color="#2ecc71",
+            command=self._test_telegram_alert,
+        )
+        self.btn_test_tg.pack(side="left", padx=2)
+
+        ctk.CTkLabel(
+            left_col,
+            text="💡 Mở Telegram tìm bot @goldstrikeai_bot bấm /start để lấy Chat ID",
+            font=ctk.CTkFont(size=11),
+            text_color="#7f8c8d",
+            wraplength=380,
+            justify="left",
+        ).pack(anchor="w", padx=15, pady=(2, 6))
+
+        # Box 4: Dynamic Role Container (Admin Whitelist vs Client License)
         self.license_container = ctk.CTkFrame(left_col, fg_color="transparent")
-        self.license_container.pack(fill="x", padx=15, pady=(10, 15))
+        self.license_container.pack(fill="x", padx=15, pady=(4, 15))
         self._update_role_ui(None)
 
         # =====================================================================
@@ -306,6 +376,79 @@ class AIGoldWatcherApp(ctk.CTk):
             wrap="word",
         )
         self.term_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+    # -------------------------------------------------------------------------
+    # TELEGRAM CONFIGURATION
+    # -------------------------------------------------------------------------
+    def _save_telegram_id(self):
+        """Save Telegram Chat ID into .env and runtime environment."""
+        chat_id = self.ent_tg_chat_id.get().strip()
+        if not chat_id:
+            self._log_terminal("⚠️ Vui lòng nhập số Telegram Chat ID của bạn.")
+            return
+
+        try:
+            env_path = Path(".env")
+            lines = []
+            chat_found = False
+            token_found = False
+
+            if env_path.exists():
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("TELEGRAM_CHAT_ID="):
+                        lines.append(f"TELEGRAM_CHAT_ID={chat_id}")
+                        chat_found = True
+                    elif line.startswith("TELEGRAM_BOT_TOKEN="):
+                        lines.append(line)
+                        token_found = True
+                    else:
+                        lines.append(line)
+            else:
+                lines = [
+                    "# AI GOLD WATCHER V4 CONFIGURATION",
+                    "DRY_RUN_ENABLED=True",
+                    "SYMBOL=XAUUSDm",
+                ]
+
+            if not token_found:
+                lines.append("TELEGRAM_BOT_TOKEN=9222706549:AAFwuV5PW_zcVLKiNMDoeJQS2s_LN-YOSlU")
+            if not chat_found:
+                lines.append(f"TELEGRAM_CHAT_ID={chat_id}")
+
+            env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            os.environ["TELEGRAM_CHAT_ID"] = chat_id
+            os.environ["TELEGRAM_BOT_TOKEN"] = "9222706549:AAFwuV5PW_zcVLKiNMDoeJQS2s_LN-YOSlU"
+
+            self.lbl_tg_status.configure(text=f"🟢 Đã kết nối Chat ID: #{chat_id}", text_color="#2ecc71")
+            self._log_terminal(f"✅ Đã lưu Telegram Chat ID: #{chat_id}. Bấm [🔔 Test] để thử gửi tin nhắn đến điện thoại.")
+        except Exception as e:
+            self._log_terminal(f"❌ Lỗi khi lưu Telegram Chat ID: {e}")
+
+    def _test_telegram_alert(self):
+        """Send immediate test notification to verified Telegram Chat ID."""
+        chat_id = self.ent_tg_chat_id.get().strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+        if not chat_id:
+            self._log_terminal("⚠️ Bạn chưa nhập Chat ID! Hãy nhập Chat ID và bấm [💾 Lưu] trước.")
+            return
+
+        self._log_terminal(f"🔔 Đang gửi tin nhắn kiểm tra tới Telegram #{chat_id}...")
+        try:
+            from src.monitoring.telegram_bot import TelegramNotifier
+            tg = TelegramNotifier(chat_id=chat_id)
+            test_msg = (
+                "🔔 <b>AI GOLD WATCHER V4 — DESKTOP APP</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "✅ <b>KẾT NỐI TELEGRAM THÀNH CÔNG!</b>\n"
+                f"👤 Chat ID của bạn: <code>{chat_id}</code>\n"
+                "🚀 Hệ thống đã sẵn sàng gửi thông báo mở lệnh, chốt lời, dời SL hòa vốn và cắt lỗ tự động cho bạn!"
+            )
+            success = tg.send_message(test_msg, target_chat_id=chat_id)
+            if success:
+                self._log_terminal(f"🎉 Gửi tin nhắn test tới Telegram #{chat_id} THÀNH CÔNG! Hãy kiểm tra điện thoại của bạn.")
+            else:
+                self._log_terminal("❌ Gửi tin nhắn thất bại. Vui lòng mở Telegram tìm bot @goldstrikeai_bot và bấm /start để cấp quyền nhận tin trước!")
+        except Exception as e:
+            self._log_terminal(f"❌ Lỗi gửi tin Telegram: {e}")
 
     # -------------------------------------------------------------------------
     # DYNAMIC ROLE-BASED UI MANAGEMENT
@@ -588,12 +731,13 @@ class AIGoldWatcherApp(ctk.CTk):
             self.is_running = True
             self.stop_event.clear()
             self.btn_start.configure(text="⏹ DỪNG BOT (STOP)", fg_color="#c0392b", hover_color="#e74c3c")
-            self._log_terminal("🚀 Đang khởi động hệ thống giao dịch tự động...")
 
             mode_str = self.mode_menu.get()
-            if "Paper" in mode_str:
+            if "Paper" in mode_str or "25" in mode_str:
+                self._log_terminal("⚡ Bắt đầu chế độ: Live Paper (Test bot trong 25 giờ vừa qua)...")
                 self.worker_thread = threading.Thread(target=self._run_paper_worker, daemon=True)
             else:
+                self._log_terminal("🚀 Bắt đầu chế độ: Live Demo MT5 (Quét 5s/lần theo thời gian thực)...")
                 self.worker_thread = threading.Thread(target=self._run_live_worker, daemon=True)
             self.worker_thread.start()
         else:
@@ -644,17 +788,61 @@ class AIGoldWatcherApp(ctk.CTk):
             self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60")
 
     def _run_paper_worker(self):
-        """Worker thread for paper replay."""
+        """Worker thread for live paper replay over 300 real M5 bars (past 25 hours)."""
         from src.main import run_paper_session
         from src.config.settings import SystemSettings
         try:
             settings = SystemSettings()
-            run_paper_session(settings=settings, bar_count=300, use_mock=False, logger=logging.getLogger())
+            self._log_terminal("⚡ ========================================================")
+            self._log_terminal("⚡ BẮT ĐẦU LIVE PAPER TEST: 300 nến M5 (25 giờ qua) từ MT5...")
+            self._log_terminal("⚡ Đang kết nối dữ liệu thật và chạy mô phỏng vào lệnh...")
+            self._log_terminal("⚡ ========================================================")
+
+            summary = run_paper_session(settings=settings, bar_count=300, use_mock=False, logger=logging.getLogger())
+            if summary:
+                bal = summary["final_balance"]
+                pnl = summary["net_pnl"]
+                wr_pct = summary["win_rate"] * 100.0
+                wins = summary["wins"]
+                losses = summary["losses"]
+                self.card_balance["value"].configure(text=f"${bal:,.2f}")
+                self.card_equity["value"].configure(text=f"${bal:,.2f}")
+                self.card_pnl["value"].configure(
+                    text=f"{'+' if pnl >= 0 else ''}${pnl:.2f}",
+                    text_color="#2ecc71" if pnl >= 0 else "#e74c3c",
+                )
+                self.card_winrate["value"].configure(
+                    text=f"{wr_pct:.1f}% ({wins}W / {losses}L)",
+                    text_color="#2ecc71" if wr_pct >= 60 else "#f39c12",
+                )
+                self._log_terminal(
+                    f"🏆 HOÀN THÀNH TEST 25 GIỜ VỪA QUA: Win Rate {wr_pct:.1f}% ({wins} Thắng / {losses} Thua) | Lợi nhuận PnL: {'+' if pnl >= 0 else ''}${pnl:.2f}"
+                )
+
+                # Send summary report to Telegram
+                try:
+                    from src.monitoring.telegram_bot import TelegramNotifier
+                    tg = TelegramNotifier()
+                    if tg.enabled:
+                        tg.send_message(
+                            f"⚡ <b>BÁO CÁO KẾT QUẢ TEST BOT (25 GIỜ VỪA QUA)</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"• Chế độ: <b>Live Paper Replay (300 nến M5 thật)</b>\n"
+                            f"• Số dư ban đầu: ${summary['initial_balance']:.2f} USD\n"
+                            f"• Số dư kết thúc: <b>${summary['final_balance']:.2f} USD</b>\n"
+                            f"• Lợi nhuận ròng: <b>{'+' if pnl >= 0 else ''}${pnl:.2f} USD</b>\n"
+                            f"• Tỷ lệ thắng (Win Rate): <b>{wr_pct:.1f}%</b> ({wins} Thắng / {losses} Thua)\n"
+                            f"• Tổng số lệnh: <b>{summary['total_trades']} lệnh</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"<i>Dữ liệu được trích xuất trực tiếp từ biểu đồ MT5 XAUUSDm</i>"
+                        )
+                except Exception:
+                    pass
         except Exception as e:
-            self._log_terminal(f"❌ Luồng Paper Replay gặp sự cố: {e}")
+            self._log_terminal(f"❌ Luồng Live Paper gặp sự cố: {e}")
         finally:
             self.is_running = False
-            self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60")
+            self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60", hover_color="#2ecc71")
 
     # -------------------------------------------------------------------------
     # LICENSE & WHITELIST ACTIONS (ADMIN ONLY)

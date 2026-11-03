@@ -318,6 +318,13 @@ class TelegramNotifier:
 
                 # Security: Only respond to authorized chat IDs
                 if self.chat_ids and chat_id not in self.chat_ids:
+                    if text.startswith("/start"):
+                        self.send_message(
+                            f"👋 <b>Xin chào bạn!</b>\n\n"
+                            f"🆔 <b>Telegram Chat ID của bạn là:</b> <code>{chat_id}</code>\n\n"
+                            f"📋 Hãy copy số trên và dán vào ô <b>'Telegram Chat ID'</b> trong Desktop App của bot để kết nối nhận tín hiệu tự động!",
+                            target_chat_id=chat_id,
+                        )
                     continue
 
                 if text.startswith("/status"):

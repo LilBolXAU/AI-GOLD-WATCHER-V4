@@ -279,6 +279,16 @@ def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, 
     logger.info("Win Rate        : %.1f%%", wr * 100)
     logger.info("Database Path   : %s", settings.storage.db_path)
 
+    return {
+        "initial_balance": live_balance,
+        "final_balance": balance,
+        "net_pnl": balance - live_balance,
+        "total_trades": len(paper_mgr.trade_history),
+        "wins": wins,
+        "losses": len(paper_mgr.trade_history) - wins,
+        "win_rate": wr,
+    }
+
 
 def run_backtest_session(settings: SystemSettings, bar_count: int, output_path: str, logger) -> None:
     """Execute high-speed event-driven backtest and output tearsheet."""

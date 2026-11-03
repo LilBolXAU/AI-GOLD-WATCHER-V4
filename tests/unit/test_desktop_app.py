@@ -44,3 +44,17 @@ def test_sync_remote_license_graceful_fallback():
     with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
         res = sync_remote_license(timeout=0.1)
         assert res is None
+
+
+def test_run_paper_session_returns_summary():
+    from src.main import run_paper_session
+    from src.config.settings import SystemSettings
+    import logging
+
+    settings = SystemSettings()
+    summary = run_paper_session(settings=settings, bar_count=70, use_mock=True, logger=logging.getLogger())
+    assert isinstance(summary, dict)
+    assert "initial_balance" in summary
+    assert "final_balance" in summary
+    assert "win_rate" in summary
+    assert "total_trades" in summary
