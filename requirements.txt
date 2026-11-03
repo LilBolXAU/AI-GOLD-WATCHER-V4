@@ -8,3 +8,4 @@ streamlit>=1.30.0
 scikit-learn>=1.6.0
 requests>=2.30.0
 python-dotenv>=1.0.0
+customtkinter>=6.0.0
