@@ -84,6 +84,11 @@
    - Live MT5 300-Bar Verification: Reached **81.8% Win Rate** (9 Wins / 2 Losses), growing account from $100.81 to $122.40 USD (+21.4% gain, +$21.59 net profit), with Trailing Runner locking in +$11.46 on a single major gold drop.
    - Total Automated Unit Test Suite: **100 / 100 passed (100%)**.
 
+9. **Modern Desktop Application & License Control Deployed**:
+   - `src/ui/desktop_app.py`: Full Windows 11 Dark Mode GUI with CustomTkinter. Features 4 live KPI cards (Balance, Equity, Daily PnL, Win Rate), single-click Start/Pause/Emergency Close controls, real-time thread-safe terminal log, and an integrated MT5 whitelist manager (`allowed_accounts.json`).
+   - Launcher: [`run_app.bat`](file:///c:/VuBlack/BOTTRADE/run_app.bat) allows 1-click startup without typing any terminal commands.
+   - Total automated test suite: **102 / 102 passed (100%)** in 6.49s.
+
 6. **"Vua Scalping" Architecture Equipped**:
    - `src/execution/scalp_protection.py`: `ScalpProtectionEngine` implementing Auto Break-Even ("Lệnh Bất Tử" locking SL to Entry + $0.10 at 50% TP progress) and Dynamic Trailing Stop (at 70%+ TP).
    - `src/execution/mt5_order_bridge.py`: Implemented `modify_position_sl` sending MT5 `TRADE_ACTION_SLTP` requests.

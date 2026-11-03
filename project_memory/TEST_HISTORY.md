@@ -256,4 +256,24 @@
   - Exit Code: 0 (OK)
 - **Status**: **PASS (100%)**
 
+---
+
+### RUN-014: Desktop Application & License Whitelist Suite
+- **Date**: 2026-11-04 00:50:10 UTC+7
+- **Environment**: Windows 11 x86-64 | Python 3.13.7
+- **Test Command**:
+  ```powershell
+  python -m pytest
+  ```
+- **Scope**: Evaluates CustomTkinter desktop app imports, card construction, and dynamic MT5 license addition/removal flows.
+- **Results**:
+  - Total Tests: 102
+  - Passed: 102
+  - Failed: 0
+  - Errors: 0
+  - Duration: 6.49 seconds
+  - Exit Code: 0 (OK)
+- **Status**: **PASS (100%)**
+
+
 

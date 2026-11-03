@@ -320,6 +320,23 @@
      - When user sends `/resume` in Telegram, `_reply_resume` immediately clears circuit breakers and unpauses the bot.
 - **Consequences**: Resolves the permanent veto deadlock while preserving full capital protection against adverse market regimes. 100/100 unit tests passing (100%).
 
+---
+
+### ADR-024: CustomTkinter Modern Desktop App Deployment & MT5 Licensing
+- **Date**: 2026-11-04
+- **Status**: Accepted
+- **Context**: User requested transforming AI GOLD WATCHER V4 into a standalone desktop application with a clean GUI to simplify operations for friends and lay the groundwork for future commercial selling/licensing.
+- **Decision**:
+  1. **CustomTkinter GUI (`src/ui/desktop_app.py`)**:
+     - Built Windows 11 Dark Mode trading dashboard with 4 KPI cards (Balance, Equity, Daily PnL, Win Rate).
+     - Integrated single-click controls: Start Trading, Pause, and Emergency Close All Positions.
+     - Live open position telemetry and thread-safe real-time scrolling terminal log.
+     - Dedicated MT5 Account Whitelist management (Add/Remove client MT5 logins) and 1-click GitHub Pull/Push synchronization.
+  2. **Launcher**: Created `run_app.bat` for instant zero-command launching.
+  3. **Verification**: Added `tests/unit/test_desktop_app.py`, expanding automated test suite to 102 passing tests (100%).
+- **Consequences**: Provides a professional, non-technical interface suitable for both friends and commercial distribution.
+
+
 
 
 
