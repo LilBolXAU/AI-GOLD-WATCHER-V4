@@ -5,6 +5,7 @@ Handles automatic update detection and real-time Admin broadcast notices.
 
 import json
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
@@ -65,7 +66,7 @@ def bump_version_on_push(description: str = "") -> dict:
     return current
 
 
-def check_remote_update(timeout: float = 2.5) -> Tuple[bool, Optional[dict]]:
+def check_remote_update(timeout: float = 4.0) -> Tuple[bool, Optional[dict]]:
     """
     Check GitHub repository for a newer version build.
     Returns (has_update, remote_info_dict).
@@ -74,9 +75,14 @@ def check_remote_update(timeout: float = 2.5) -> Tuple[bool, Optional[dict]]:
     local_build = int(local.get("build", 0))
 
     try:
+        url = f"{GITHUB_RAW_VERSION_URL}?_nocache={int(time.time())}"
         req = urllib.request.Request(
-            GITHUB_RAW_VERSION_URL,
-            headers={"User-Agent": "AIGoldWatcherV4-UpdaterClient"},
+            url,
+            headers={
+                "User-Agent": "AIGoldWatcherV4-UpdaterClient",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            },
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             if resp.status == 200:
@@ -124,19 +130,29 @@ def publish_admin_announcement(message: str, sender: str = "LilBoiXAU") -> dict:
     return payload
 
 
-def check_remote_announcement(timeout: float = 2.5) -> Optional[dict]:
+def check_remote_announcement(timeout: float = 4.0) -> Optional[dict]:
     """
     Fetch the latest Admin broadcast from GitHub master repo.
     """
     try:
+        url = f"{GITHUB_RAW_ANNOUNCEMENT_URL}?_nocache={int(time.time())}"
         req = urllib.request.Request(
-            GITHUB_RAW_ANNOUNCEMENT_URL,
-            headers={"User-Agent": "AIGoldWatcherV4-AnnouncementClient"},
+            url,
+            headers={
+                "User-Agent": "AIGoldWatcherV4-AnnouncementClient",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            },
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             if resp.status == 200:
                 raw_bytes = resp.read()
                 data = json.loads(raw_bytes.decode("utf-8"))
+                try:
+                    with open(ANNOUNCEMENT_FILE, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass
                 return data
     except Exception as e:
         logger.debug("Remote announcement check skipped: %s", e)

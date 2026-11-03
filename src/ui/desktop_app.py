@@ -1191,22 +1191,22 @@ class AIGoldWatcherApp(ctk.CTk):
     def _check_updates_and_broadcasts(self):
         """Periodically check remote GitHub for new updates and Admin broadcasts."""
         threading.Thread(target=self._query_remote_status_worker, daemon=True).start()
-        self.after(20000, self._check_updates_and_broadcasts)
+        self.after(8000, self._check_updates_and_broadcasts)
 
     def _query_remote_status_worker(self):
         """Background thread checking GitHub for version updates and broadcasts."""
         try:
-            from src.config.updater import check_remote_update, check_remote_announcement
+            from src.config.updater import check_remote_update, check_remote_announcement, get_local_announcement
             # 1. Check for new update
-            has_update, remote_info = check_remote_update(timeout=2.5)
+            has_update, remote_info = check_remote_update(timeout=3.5)
             if has_update and remote_info and not self.has_active_update_banner:
-                self.after(0, lambda: self._show_update_banner(remote_info))
+                self.after(0, lambda info=remote_info: self._show_update_banner(info))
 
-            # 2. Check for new announcement
-            ann = check_remote_announcement(timeout=2.5)
+            # 2. Check for new announcement (from remote, or fallback to local disk)
+            ann = check_remote_announcement(timeout=3.5) or get_local_announcement()
             if ann and ann.get("id") != self.last_seen_announcement_id:
                 self.last_seen_announcement_id = ann.get("id")
-                self.after(0, lambda: self._handle_new_announcement(ann))
+                self.after(0, lambda a=ann: self._handle_new_announcement(a))
         except Exception:
             pass
 
@@ -1326,6 +1326,13 @@ class AIGoldWatcherApp(ctk.CTk):
                     self._log_terminal(f"🎉 Kích hoạt thành công! MT5 #{self.current_account} đã được cấp phép.")
                 else:
                     self._log_terminal(f"⚠️ MT5 #{self.current_account} vẫn chưa có trong danh sách của Admin LilBoiXAU.")
+
+            # Check and display latest Admin announcements immediately
+            from src.config.updater import get_local_announcement, check_remote_announcement
+            ann = check_remote_announcement(timeout=3.5) or get_local_announcement()
+            if ann and ann.get("id") != self.last_seen_announcement_id:
+                self.last_seen_announcement_id = ann.get("id")
+                self._handle_new_announcement(ann)
         except Exception as e:
             self._log_terminal(f"❌ Lỗi kiểm tra cập nhật: {e}")
 
