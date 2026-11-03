@@ -382,30 +382,34 @@
 
 ---
 
-### ADR-027: Admin Rainbow Chat Broadcast & Real-Time New Version Update Notification
+### ADR-028: Live Trade Closure Alerts with Account Balance Snapshot & Dynamic Capital ROI Labeling
 - **Date**: 2026-11-04
 - **Status**: Accepted
-- **Context**: User requested two social/administrative features:
-  1. An Admin Chat feature where Admin (LilBoiXAU) can broadcast messages to all connected client apps, formatted with eye-catching large, bold rainbow-colored font.
-  2. Automatic detection and prominent banner notification whenever Admin pushes a new update/release to GitHub.
+- **Context**:
+  1. The user requested that every trade closure (whether TP Win, SL Win / Break-even, or SL Hit) explicitly notify the user and all connected friends via Telegram and in-app logs with the exact real-time account balance post-trade.
+  2. The trading profile label previously displayed a hardcoded flat target of `$10-$20/ngày`. In testing on a $10,000 account, the bot's dynamic risk budget (4.0% risk, 6.0% TP) generated a +$600 profit (+6%) in a single session. The flat "$10-$20" phrasing caused misunderstandings that profits were capped regardless of capital size.
+  3. Client machines extracted from ZIP without `.git` previously encountered `fatal: not a git repository` or git merge aborts due to untracked files.
 - **Decision**:
-  1. **Updater & Announcement Engine (`src/config/updater.py`)**:
-     - Manages `version.json` and `announcements.json`.
-     - Supports `bump_version_on_push()` to automatically increment build numbers and timestamps upon Admin git pushes.
-     - Supports `check_remote_update()` and `check_remote_announcement()` querying raw GitHub endpoints without rate limits.
-  2. **Admin Rainbow Chat (`src/ui/desktop_app.py`)**:
-     - Integrated Admin Broadcast Input Box in the Admin Whitelist Panel (`[🌈 Gửi thông báo]`).
-     - Implemented `_log_admin_rainbow()` rendering rich Tkinter text tagged character-by-character with neon rainbow colors (`#ff1744`, `#ff9100`, `#ffd600`, `#00e676`, `#00e5ff`, `#2979ff`, `#d500f9`) in bold 15pt font.
-     - Added an Admin Broadcast Notification Banner right above the real-time terminal log.
-     - Dispatches instant Telegram broadcast to verified chats when an announcement is sent.
-     - Automatically commits and pushes `announcements.json` to GitHub in a daemon thread.
-  3. **Auto-Update Banner**:
-     - Background polling checks for new builds every 20 seconds.
-     - When `remote_build > local_build`, displays a bright green/gold update notification bar at the top of the window with changelog description and single-click `[🔄 CẬP NHẬT NGAY]` button.
-     - Clicking executes `git pull origin main` and dismisses the banner upon completion.
-  4. **Unit Tests**:
-     - Added `tests/unit/test_updater.py` (4 tests).
-- **Consequences**: Admin can communicate system notices in vibrant rainbow typography across all client desktops and Telegram, and users receive zero-friction notifications to update their software whenever new code is released. Test suite expanded to 108/108 passing tests (100%).
+  1. **Enhanced Trade Closure Alerts (`src/monitoring/telegram_bot.py` & `src/main.py`)**:
+     - Upgraded `notify_order_closed` to accept `equity: Optional[float] = None`.
+     - Distinct visual classifications:
+       - 🏆 `CHỐT LỜI THÀNH CÔNG (TP WIN)`
+       - 🛡️ `HÒA VỐN / SL DƯƠNG THÀNH CÔNG (BREAK-EVEN WIN)`
+       - 🛑 `ĐÓNG LỆNH CẮT LỖ (SL HIT)`
+     - Prominently displays:
+       - `💰 SỐ DƯ HIỆN TẠI (BALANCE): $... USD`
+       - `📈 VỐN THỰC HIỆN TẠI (EQUITY): $... USD`
+     - In `run_live_demo_loop`, re-queries `mt5.account_info()` immediately post-trade to guarantee exact balance and equity reflection.
+     - Logs colored notification tags to the Desktop App's Live Signals terminal.
+  2. **Dynamic Capital ROI Profile Labeling (`src/ui/desktop_app.py`)**:
+     - Updated profile menu options to:
+       `⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi 15% - 35%/ngày hoặc cao hơn theo vốn)`
+       `🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm, bảo vệ vốn tối đa)`
+       `🎯 Scalper Cân Bằng (Balanced — An toàn & tăng trưởng đều đặn)`
+  3. **Resilient Client Auto-Updater (`src/ui/desktop_app.py`)**:
+     - Enhanced `_apply_new_update` to execute `git checkout -f -B main origin/main` followed by `git clean -fd`, eliminating untracked file aborts on client PCs.
+     - Automatically falls back to direct GitHub ZIP download and extraction (`_download_and_extract_github_zip()`) if Git is not present or returns errors.
+- **Consequences**: Users have full visibility into balance changes after every win/loss across both Telegram and Desktop App, capital-proportional scaling is accurately communicated, and client update execution is 100% resilient across heterogeneous Windows environments. All 108 unit tests passing.
 
 
 

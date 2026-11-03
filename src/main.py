@@ -175,12 +175,14 @@ def run_paper_session(
         if closed_trade is not None:
             trade_repo.save_closed_trade(closed_trade)
             balance += closed_trade.net_pnl
+            pnl_tag = "🏆 [CHỐT LỜI TP WIN]" if closed_trade.net_pnl > 0.05 else ("🛑 [CẮT LỖ SL HIT]" if closed_trade.net_pnl < -0.05 else "🛡️ [HÒA VỐN / SL DƯƠNG]")
             logger.info(
-                "Closed Trade: %s | PnL: $%.2f | Reason: %s | New Balance: $%.2f",
+                "%s Kèo #%s | Lãi/Lỗ: %+.2f USD | 💰 Số dư tài khoản mới: $%.2f USD (%s)",
+                pnl_tag,
                 closed_trade.trade_id,
                 closed_trade.net_pnl,
-                closed_trade.exit_reason.value,
                 balance,
+                closed_trade.exit_reason.value,
             )
 
         # Slice historical window up to current closed bar
@@ -406,6 +408,7 @@ def run_live_demo_loop(
 
     last_processed_bar_time = None
     active_mt5_ticket = None
+    tracked_positions: dict[int, dict] = {}
     control_state = {"is_paused": False}
 
     try:
@@ -483,27 +486,93 @@ def run_live_demo_loop(
             )
 
             # 2. Check if a previously open position has closed in MT5
-            if active_mt5_ticket is not None:
-                pos_found = any(p.ticket == active_mt5_ticket for p in open_positions)
-                if not pos_found:
-                    logger.info("Position #%d was closed by MT5! Checking deal history...", active_mt5_ticket)
-                    scalp_engine.reset_ticket(active_mt5_ticket)
-                    deals = mt5.history_deals_get(position=active_mt5_ticket)
-                    if deals and len(deals) >= 2:
-                        exit_deal = deals[-1]
-                        logger.info("Closed Deal #%d: Profit: $%.2f USD", exit_deal.ticket, exit_deal.profit)
-                        telegram.notify_order_closed(
-                            trade_id=f"deal_{exit_deal.ticket}",
-                            symbol="XAUUSDm",
-                            side="BUY" if getattr(exit_deal, "type", 0) == 1 else "SELL",
-                            entry_price=deals[0].price if deals else 0.0,
-                            exit_price=exit_deal.price,
-                            net_pnl=exit_deal.profit,
-                            exit_reason="MT5_SL_TP_HIT",
-                            balance=acc.balance,
-                            ticket=active_mt5_ticket,
-                        )
-                    active_mt5_ticket = None
+            for p in open_positions:
+                if p.ticket not in tracked_positions:
+                    tracked_positions[p.ticket] = {
+                        "side": "BUY" if p.type == 0 else "SELL",
+                        "price_open": p.price_open,
+                        "symbol": getattr(p, "symbol", "XAUUSDm"),
+                        "sl": p.sl,
+                        "tp": p.tp,
+                    }
+
+            current_tickets = {p.ticket for p in open_positions}
+            closed_tickets = [t for t in list(tracked_positions.keys()) if t not in current_tickets]
+            for closed_ticket in closed_tickets:
+                info = tracked_positions.pop(closed_ticket, {})
+                logger.info("Vị thế #%d đã đóng trên MT5! Đang kiểm tra lịch sử khớp lệnh...", closed_ticket)
+                scalp_engine.reset_ticket(closed_ticket)
+
+                # Re-query fresh MT5 account balance and equity post-trade
+                fresh_acc = mt5.account_info()
+                fresh_balance = float(fresh_acc.balance) if fresh_acc else acc.balance
+                fresh_equity = float(fresh_acc.equity) if fresh_acc else acc.equity
+
+                deals = mt5.history_deals_get(position=closed_ticket)
+                entry_price = float(info.get("price_open", 0.0))
+                side = str(info.get("side", "BUY"))
+                symbol = str(info.get("symbol", "XAUUSDm"))
+
+                if deals and len(deals) >= 2:
+                    exit_deal = deals[-1]
+                    exit_price = float(exit_deal.price)
+                    net_pnl = float(exit_deal.profit) + float(getattr(exit_deal, "swap", 0.0)) + float(getattr(exit_deal, "commission", 0.0))
+                    comment = str(getattr(exit_deal, "comment", "") or "").lower()
+                    reason_code = getattr(exit_deal, "reason", 0)
+
+                    # MT5 reasons: 3=DEAL_REASON_TP, 4=DEAL_REASON_SL
+                    if reason_code == 3 or "tp" in comment or "[tp]" in comment:
+                        exit_reason = "TAKE_PROFIT (Chốt lời TP)"
+                    elif reason_code == 4 or "sl" in comment or "[sl]" in comment:
+                        if net_pnl > 0.05:
+                            exit_reason = "TRAILING_STOP_SL_WIN (SL Dương / Hòa Vốn)"
+                        else:
+                            exit_reason = "STOP_LOSS (Cắt lỗ bảo vệ vốn)"
+                    elif net_pnl > 0.05:
+                        exit_reason = "PROFIT_CLOSE (Chốt lời có lãi)"
+                    elif net_pnl < -0.05:
+                        exit_reason = "STOP_LOSS (Cắt lỗ)"
+                    else:
+                        exit_reason = "BREAK_EVEN (Hòa vốn)"
+                elif deals and len(deals) == 1:
+                    exit_deal = deals[0]
+                    exit_price = float(exit_deal.price)
+                    net_pnl = float(exit_deal.profit)
+                    exit_reason = "MANUAL_CLOSE (Đóng vị thế)"
+                else:
+                    exit_price = entry_price
+                    net_pnl = 0.0
+                    exit_reason = "POSITION_CLOSED"
+
+                # Log to terminal with icons and new live balance
+                if net_pnl > 0.05:
+                    pnl_tag = f"🏆 [CHỐT LỜI TP WIN] Lệnh #{closed_ticket} ({side} {symbol})"
+                elif net_pnl < -0.05:
+                    pnl_tag = f"🛑 [CẮT LỖ SL HIT] Lệnh #{closed_ticket} ({side} {symbol})"
+                else:
+                    pnl_tag = f"🛡️ [HÒA VỐN / SL DƯƠNG] Lệnh #{closed_ticket} ({side} {symbol})"
+
+                logger.info(
+                    "%s | Lãi/Lỗ: %+.2f USD | 💰 Số dư hiện tại: $%.2f USD | Vốn thực: $%.2f USD (%s)",
+                    pnl_tag,
+                    net_pnl,
+                    fresh_balance,
+                    fresh_equity,
+                    exit_reason,
+                )
+
+                telegram.notify_order_closed(
+                    trade_id=f"deal_{closed_ticket}",
+                    symbol=symbol,
+                    side=side,
+                    entry_price=entry_price,
+                    exit_price=exit_price,
+                    net_pnl=net_pnl,
+                    exit_reason=exit_reason,
+                    balance=fresh_balance,
+                    ticket=closed_ticket,
+                    equity=fresh_equity,
+                )
 
             # 3. Fetch latest closed M5 bar
             try:
@@ -628,6 +697,13 @@ def run_live_demo_loop(
                             exec_res = bridge.send_market_order(risk_res.order)
                             if exec_res.success:
                                 active_mt5_ticket = exec_res.order_ticket
+                                tracked_positions[exec_res.order_ticket] = {
+                                    "side": risk_res.order.side.value,
+                                    "price_open": exec_res.price,
+                                    "symbol": risk_res.order.symbol,
+                                    "sl": risk_res.order.stop_loss,
+                                    "tp": risk_res.order.take_profit,
+                                }
                                 is_scale_in = len(open_positions) > 0
                                 logger.info(
                                     "%s ORDER ACTIVE: #%d (%s @ %.3f)",

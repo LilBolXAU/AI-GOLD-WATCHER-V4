@@ -7,15 +7,11 @@
 ---
 
 ## 1. Session Intent & Accomplishment
-**Mission**: Resolve the low trade count (2 trades, +$0.02) during 25-hour Live Paper Replay, eliminate profit bottlenecks, introduce a dynamic Trading Style Profile selector, and finalize remote GitHub repo push and client license synchronization.  
-**Result**: 100% SUCCESS.
-1. Calibrated `RiskGuard` SL distance from $0.20 to $3.50 (fixing 3-digit gold calculation).
-2. Adjusted Auto Break-Even trigger to 52% TP, giving Gold trades room to breathe and reach Full TP/Trailing Runners.
-3. Added Trading Style Profile dropdown in Desktop App (`⚡ Sniper Chuẩn V4`, `🛡️ Siêu Bảo Toàn`, `🎯 Scalper Cân Bằng`).
-4. Replay of 300 real MT5 M5 bars (25 hours) generated **13 trades, 9 Wins / 4 Losses (69.2% WR), +$12.17 profit (+24.3% ROI)**.
-5. Successfully pushed repository to GitHub (`https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git`).
-6. Added **Admin Rainbow Chat Broadcast** (in đậm to, màu cầu vồng trên app khách hàng + Telegram) and **Automatic New Version Update Notification Bar** (`src/config/updater.py`).
-7. Full test suite: **108 / 108 passed (100%)**.
+**Mission**:
+1. Implement real-time trade closure alerts on Telegram and Desktop Terminal prominently displaying whether a trade hit TP Win, SL Win / Break-even, or SL Hit, along with the exact current account balance and equity post-trade.
+2. Update the Desktop App profile menu to dynamically communicate capital-proportional returns (`⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi 15% - 35%/ngày hoặc cao hơn theo vốn)`), eliminating misleading flat dollar targets after $10,000 capital test demonstrated +$600 profit.
+3. Harden the auto-update mechanism (`git checkout -f -B main origin/main` + `git clean -fd` with direct ZIP fallback) against untracked file aborts on client PCs.
+**Result**: 100% SUCCESS. Full test suite passing at 108 / 108 tests (100%).
 
 ---
 

@@ -163,22 +163,44 @@ class TelegramNotifier:
         exit_reason: str,
         balance: float,
         ticket: Optional[int] = None,
+        equity: Optional[float] = None,
     ) -> bool:
-        """Send rich alert when a trade is closed."""
-        pnl_icon = "💰" if net_pnl > 0 else "🛑"
-        res_str = "PROFIT" if net_pnl > 0 else "LOSS"
+        """Send rich alert when a trade is closed (TP Win, SL Win/Break-even, or SL Hit)."""
         ticket_str = f"Ticket: <code>#{ticket}</code>\n" if ticket else ""
+        side_icon = "🟢" if str(side).upper() == "BUY" else "🔴"
+        eq_val = equity if equity is not None else balance
+
+        if net_pnl > 0.05:
+            is_tp = "TP" in exit_reason.upper() or "TAKE_PROFIT" in exit_reason.upper()
+            if is_tp:
+                header = "🏆 <b>CHỐT LỜI THÀNH CÔNG (TP WIN) — TRADE CLOSED (PROFIT)</b> 🏆"
+                footer_note = "✨ <i>Lệnh chạm Take Profit xuất sắc! Lợi nhuận đã được cộng thẳng vào tài khoản!</i> 🚀"
+            else:
+                header = "🛡️ <b>HÒA VỐN / SL DƯƠNG THÀNH CÔNG — TRADE CLOSED (PROFIT)</b> 💵"
+                footer_note = "🛡️ <i>Lệnh đóng tại Stop Loss Dương bảo vệ thành quả an toàn 100%!</i> 🚀"
+            pnl_str = f"<b>+{net_pnl:.2f} USD</b> 🟢"
+        elif net_pnl < -0.05:
+            header = "🛑 <b>ĐÓNG LỆNH CẮT LỖ (SL HIT) — TRADE CLOSED (LOSS)</b> 🛑"
+            footer_note = "🛡️ <i>Kỷ luật cắt lỗ tự động giúp bảo toàn vốn cho các cơ hội tiếp theo!</i>"
+            pnl_str = f"<b>{net_pnl:.2f} USD</b> 🔴"
+        else:
+            header = "🛡️ <b>ĐÓNG LỆNH HÒA VỐN (BREAK-EVEN) — TRADE CLOSED (PROFIT)</b> 🛡️"
+            footer_note = "✨ <i>Lệnh đóng hòa vốn an toàn tuyệt đối, không mất vốn!</i>"
+            pnl_str = f"<b>{net_pnl:+.2f} USD</b> ⚪"
 
         msg = (
-            f"{pnl_icon} <b>TRADE CLOSED ({res_str}) — {symbol}</b>\n"
+            f"{header}\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"{ticket_str}"
-            f"Action: <b>{side}</b>\n"
-            f"Entry: <code>{entry_price:.3f}</code> ➜ Exit: <code>{exit_price:.3f}</code>\n"
-            f"Net P&L: <b>{net_pnl:+.2f} USD</b>\n"
-            f"Exit Reason: <b>{exit_reason}</b>\n"
-            f"Current Balance: <b>${balance:.2f} USD</b>\n"
-            f"Time: <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</i>"
+            f"Cặp GD: <b>{symbol}</b> | Lệnh: {side_icon} <b>{str(side).upper()}</b>\n"
+            f"Giá vào (Entry): <code>{entry_price:.3f}</code> ➜ Thoát: <code>{exit_price:.3f}</code>\n"
+            f"Lãi/Lỗ ròng (Net P&L): {pnl_str}\n"
+            f"Trạng thái đóng: <b>{exit_reason}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>SỐ DƯ HIỆN TẠI (BALANCE):</b> <code>${balance:,.2f} USD</code>\n"
+            f"📈 <b>VỐN THỰC HIỆN TẠI (EQUITY):</b> <code>${eq_val:,.2f} USD</code>\n"
+            f"⏰ <i>Thời gian: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</i>\n"
+            f"{footer_note}"
         )
         return self.send_message(msg)
 

@@ -67,20 +67,64 @@ def test_notify_order_closed(mock_post):
     mock_post.return_value.status_code = 200
     notifier = TelegramNotifier(bot_token="123456:ABC-DEF", chat_id="987654321", enabled=True)
 
+    # 1. TP Win test
     result = notifier.notify_order_closed(
         trade_id="trd_001",
         symbol="XAUUSDm",
         side="BUY",
         entry_price=2650.0,
-        exit_price=2652.0,
-        net_pnl=2.00,
-        exit_reason="TAKE_PROFIT",
-        balance=52.00,
+        exit_price=2656.0,
+        net_pnl=600.00,
+        exit_reason="TAKE_PROFIT (Chốt lời TP)",
+        balance=10600.00,
         ticket=1234567,
+        equity=10600.00,
     )
     assert result
-    assert "TRADE CLOSED (PROFIT)" in mock_post.call_args[1]["json"]["text"]
-    assert "+2.00 USD" in mock_post.call_args[1]["json"]["text"]
+    text = mock_post.call_args[1]["json"]["text"]
+    assert "CHỐT LỜI THÀNH CÔNG (TP WIN)" in text
+    assert "+600.00 USD" in text
+    assert "SỐ DƯ HIỆN TẠI (BALANCE)" in text
+    assert "10,600.00" in text
+
+    # 2. SL Hit test
+    result_sl = notifier.notify_order_closed(
+        trade_id="trd_002",
+        symbol="XAUUSDm",
+        side="SELL",
+        entry_price=2650.0,
+        exit_price=2654.0,
+        net_pnl=-400.00,
+        exit_reason="STOP_LOSS (Cắt lỗ bảo vệ vốn)",
+        balance=9600.00,
+        ticket=1234568,
+        equity=9600.00,
+    )
+    assert result_sl
+    text_sl = mock_post.call_args[1]["json"]["text"]
+    assert "ĐÓNG LỆNH CẮT LỖ (SL HIT)" in text_sl
+    assert "-400.00 USD" in text_sl
+    assert "SỐ DƯ HIỆN TẠI (BALANCE)" in text_sl
+    assert "9,600.00" in text_sl
+
+    # 3. SL Win / Break-even runner test
+    result_be = notifier.notify_order_closed(
+        trade_id="trd_003",
+        symbol="XAUUSDm",
+        side="BUY",
+        entry_price=2650.0,
+        exit_price=2651.5,
+        net_pnl=150.00,
+        exit_reason="TRAILING_STOP_SL_WIN (SL Dương)",
+        balance=10750.00,
+        ticket=1234569,
+        equity=10750.00,
+    )
+    assert result_be
+    text_be = mock_post.call_args[1]["json"]["text"]
+    assert "HÒA VỐN / SL DƯƠNG THÀNH CÔNG" in text_be
+    assert "+150.00 USD" in text_be
+    assert "10,750.00" in text_be
 
 
 @patch("requests.get")

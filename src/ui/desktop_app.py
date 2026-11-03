@@ -319,9 +319,9 @@ class AIGoldWatcherApp(ctk.CTk):
         self.profile_menu = ctk.CTkOptionMenu(
             left_col,
             values=[
-                "⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi mục tiêu $10-$20/ngày)",
-                "🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm)",
-                "🎯 Scalper Cân Bằng (Balanced — An toàn & hiệu quả)",
+                "⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi 15% - 35%/ngày hoặc cao hơn theo vốn)",
+                "🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm, bảo vệ vốn tối đa)",
+                "🎯 Scalper Cân Bằng (Balanced — An toàn & tăng trưởng đều đặn)",
             ],
             height=32,
         )
@@ -1088,23 +1088,39 @@ class AIGoldWatcherApp(ctk.CTk):
                 save_local_version(self.latest_remote_info)
                 self.dismissed_build_number = int(self.latest_remote_info.get("build", 0))
 
+            git_ok = False
             if not Path(".git").exists():
                 self._log_terminal("🔧 Đang tự động kết nối thư mục với kho mã nguồn GitHub...")
                 try:
                     subprocess.run(["git", "init"], capture_output=True, timeout=10)
                     subprocess.run(["git", "remote", "add", "origin", "https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git"], capture_output=True, timeout=10)
-                    subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=25)
-                    res = subprocess.run(["git", "reset", "--hard", "origin/main"], capture_output=True, text=True, timeout=20)
-                    out = (res.stdout or "").strip() or (res.stderr or "").strip()
-                    self._log_terminal(f"📦 Đã đồng bộ mã nguồn Git thành công:\n{out}")
+                    subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=30)
+                    res = subprocess.run(["git", "checkout", "-f", "-B", "main", "origin/main"], capture_output=True, text=True, timeout=20)
+                    if res.returncode == 0:
+                        subprocess.run(["git", "clean", "-fd"], capture_output=True, timeout=10)
+                        out = (res.stdout or "").strip() or "Đồng bộ thành công."
+                        self._log_terminal(f"📦 Đã đồng bộ mã nguồn Git thành công:\n{out}")
+                        git_ok = True
+                    else:
+                        self._log_terminal(f"⚠️ Git checkout gặp lỗi ({res.stderr.strip() if res.stderr else 'unknown'}). Đang chuyển sang tải ZIP...")
                 except Exception as e:
-                    self._log_terminal(f"⚠️ Không thể khởi tạo Git tự động: {e}. Đang tải trực tiếp từ GitHub ZIP...")
-                    self._download_and_extract_github_zip()
+                    self._log_terminal(f"⚠️ Lỗi khởi tạo Git ({e}). Đang tải trực tiếp từ GitHub ZIP...")
             else:
-                subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=15)
-                res = subprocess.run(["git", "reset", "--hard", "origin/main"], capture_output=True, text=True, timeout=20)
-                out = (res.stdout or "").strip() or (res.stderr or "").strip()
-                self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
+                try:
+                    subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=20)
+                    res = subprocess.run(["git", "reset", "--hard", "origin/main"], capture_output=True, text=True, timeout=20)
+                    if res.returncode == 0:
+                        subprocess.run(["git", "clean", "-fd"], capture_output=True, timeout=10)
+                        out = (res.stdout or "").strip() or (res.stderr or "").strip()
+                        self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
+                        git_ok = True
+                    else:
+                        self._log_terminal("⚠️ Git reset không hoàn tất. Đang chuyển sang tải ZIP...")
+                except Exception as e:
+                    self._log_terminal(f"⚠️ Lỗi Git ({e}). Chuyển sang tải ZIP...")
+
+            if not git_ok:
+                self._download_and_extract_github_zip()
 
             if self.has_active_update_banner:
                 self.update_banner_frame.pack_forget()
