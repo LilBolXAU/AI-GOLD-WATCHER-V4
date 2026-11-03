@@ -256,5 +256,51 @@ def test_multiple_chat_ids_broadcast(mock_post):
     assert mock_post.call_count == 2
 
 
+@patch("requests.post")
+def test_notify_session_summary(mock_post):
+    mock_post.return_value.status_code = 200
+    notifier = TelegramNotifier(bot_token="123456:ABC-DEF", chat_id="987654321", enabled=True)
+    from src.evaluation.session_recap import build_session_recap
+
+    recap = build_session_recap(
+        initial_balance=10000.0,
+        final_balance=10600.0,
+        final_equity=10600.0,
+        session_title="Phiên Test Vàng XAUUSDm",
+    )
+    result = notifier.notify_session_summary(recap)
+    assert result is True
+    assert mock_post.called
+    text = mock_post.call_args[1]["json"]["text"]
+    assert "BÁO CÁO TỔNG KẾT PHIÊN GIAO DỊCH" in text
+    assert "$10,000.00 USD" in text
+    assert "$10,600.00 USD" in text
+
+
+@patch("requests.get")
+@patch("requests.post")
+def test_process_incoming_summary_command(mock_post, mock_get):
+    mock_post.return_value.status_code = 200
+    mock_get.return_value.status_code = 200
+    mock_get.return_value.json.return_value = {
+        "ok": True,
+        "result": [
+            {
+                "update_id": 105,
+                "message": {
+                    "text": "/summary",
+                    "chat": {"id": 987654321},
+                },
+            }
+        ],
+    }
+
+    notifier = TelegramNotifier(bot_token="123456:ABC-DEF", chat_id="987654321", enabled=True)
+    notifier.process_incoming_commands(context={"reference_balance": 10000.0})
+
+    assert mock_post.called
+    assert "BÁO CÁO TỔNG KẾT PHIÊN GIAO DỊCH" in mock_post.call_args[1]["json"]["text"]
+
+
 
 

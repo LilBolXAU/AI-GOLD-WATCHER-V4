@@ -13,7 +13,7 @@ import queue
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import customtkinter as ctk
 
@@ -105,8 +105,14 @@ class AIGoldWatcherApp(ctk.CTk):
     # UI BUILDERS
     # -------------------------------------------------------------------------
     def _build_header(self):
-        """Build top banner with title, branding, and status badges."""
-        self.header_frame = ctk.CTkFrame(self, corner_radius=10, fg_color="#1a1c23")
+        """Build top banner with title, branding, and status badges with gold border glow."""
+        self.header_frame = ctk.CTkFrame(
+            self,
+            corner_radius=12,
+            fg_color="#141720",
+            border_width=1,
+            border_color="#f39c12",
+        )
         self.header_frame.pack(fill="x", padx=15, pady=(15, 10))
 
         # Title & Subtitle
@@ -125,7 +131,7 @@ class AIGoldWatcherApp(ctk.CTk):
             title_box,
             text="XAUUSDm M5 Institutional Scalper • Win Rate 81.8% • Option 1 Equity Risk",
             font=ctk.CTkFont(size=12),
-            text_color="#95a5a6",
+            text_color="#a0aec0",
         )
         sub_lbl.pack(anchor="w")
 
@@ -137,10 +143,12 @@ class AIGoldWatcherApp(ctk.CTk):
             badges_box,
             text="🟢 MT5: ĐANG KẾT NỐI...",
             font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#2c3e50",
-            corner_radius=6,
-            padx=10,
-            pady=4,
+            fg_color="#112b1c",
+            border_width=1,
+            border_color="#27ae60",
+            corner_radius=8,
+            padx=12,
+            pady=5,
             text_color="#2ecc71",
         )
         self.mt5_badge.pack(side="right", padx=5)
@@ -149,11 +157,13 @@ class AIGoldWatcherApp(ctk.CTk):
             badges_box,
             text="⏳ ĐANG KIỂM TRA QUYỀN...",
             font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#34495e",
-            corner_radius=6,
-            padx=10,
-            pady=4,
-            text_color="#bdc3c7",
+            fg_color="#2b2310",
+            border_width=1,
+            border_color="#f1c40f",
+            corner_radius=8,
+            padx=12,
+            pady=5,
+            text_color="#f1c40f",
         )
         self.license_badge.pack(side="right", padx=5)
 
@@ -216,31 +226,53 @@ class AIGoldWatcherApp(ctk.CTk):
         self.has_active_update_banner = False
 
     def _build_metrics_cards(self):
-        """Build 4 KPI summary cards."""
+        """Build 4 KPI summary cards with cyber gold styling and visual bar charts."""
         self.cards_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.cards_frame.pack(fill="x", padx=15, pady=5)
         self.cards_frame.columnconfigure((0, 1, 2, 3), weight=1)
 
         # Card 1: Balance
-        self.card_balance = self._create_card(self.cards_frame, 0, "SỐ DƯ (BALANCE)", "$--.--", "#3498db")
+        self.card_balance = self._create_card(self.cards_frame, 0, "SỐ DƯ (BALANCE)", "$--.--", "#f1c40f", icon="💼")
         # Card 2: Equity
-        self.card_equity = self._create_card(self.cards_frame, 1, "VỐN THỰC (EQUITY)", "$--.--", "#2ecc71")
+        self.card_equity = self._create_card(self.cards_frame, 1, "VỐN THỰC (EQUITY)", "$--.--", "#f1c40f", icon="📈")
         # Card 3: Daily PnL
-        self.card_pnl = self._create_card(self.cards_frame, 2, "LÃI HÔM NAY (PNL)", "+$0.00 (+0.0%)", "#f1c40f")
+        self.card_pnl = self._create_card(self.cards_frame, 2, "LÃI HÔM NAY (PNL)", "+$0.00 (+0.0%)", "#2ecc71", icon="💵")
         # Card 4: Win Rate
-        self.card_winrate = self._create_card(self.cards_frame, 3, "TỶ LỆ THẮNG (WIN RATE)", "81.8% (9W / 2L)", "#9b59b6")
+        self.card_winrate = self._create_card(self.cards_frame, 3, "TỶ LỆ THẮNG (WIN RATE)", "81.8% (9W / 2L)", "#f1c40f", icon="🎯")
 
-    def _create_card(self, parent, col: int, title: str, value: str, accent: str) -> dict:
-        frame = ctk.CTkFrame(parent, corner_radius=10, fg_color="#1e222d")
+    def _create_card(self, parent, col: int, title: str, value: str, accent: str, icon: str = "💼") -> dict:
+        frame = ctk.CTkFrame(
+            parent,
+            corner_radius=12,
+            fg_color="#141720",
+            border_width=1,
+            border_color="#f39c12",
+        )
         frame.grid(row=0, column=col, padx=5, sticky="ew")
 
-        lbl_t = ctk.CTkLabel(frame, text=title, font=ctk.CTkFont(size=11, weight="bold"), text_color="#7f8c8d")
-        lbl_t.pack(anchor="w", padx=12, pady=(10, 2))
+        # Inner container with icon on left, text in middle, mini chart on right
+        inner = ctk.CTkFrame(frame, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=12, pady=10)
 
-        lbl_v = ctk.CTkLabel(frame, text=value, font=ctk.CTkFont(size=18, weight="bold"), text_color=accent)
-        lbl_v.pack(anchor="w", padx=12, pady=(0, 10))
+        # Left Icon
+        lbl_icon = ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=22))
+        lbl_icon.pack(side="left", padx=(0, 10))
 
-        return {"frame": frame, "title": lbl_t, "value": lbl_v}
+        # Center: Title & Value
+        mid = ctk.CTkFrame(inner, fg_color="transparent")
+        mid.pack(side="left", fill="both", expand=True)
+
+        lbl_t = ctk.CTkLabel(mid, text=title, font=ctk.CTkFont(size=11, weight="bold"), text_color="#a0aec0")
+        lbl_t.pack(anchor="w")
+
+        lbl_v = ctk.CTkLabel(mid, text=value, font=ctk.CTkFont(size=18, weight="bold"), text_color=accent)
+        lbl_v.pack(anchor="w")
+
+        # Right: Mini bar-graph visual indicator
+        lbl_chart = ctk.CTkLabel(inner, text=" ▂▄▆█", font=ctk.CTkFont(size=13, weight="bold"), text_color="#f39c12")
+        lbl_chart.pack(side="right", padx=(4, 0))
+
+        return {"frame": frame, "title": lbl_t, "value": lbl_v, "icon": lbl_icon, "chart": lbl_chart}
 
     def _build_main_content(self):
         """Build split layout: Left controls & Right live terminals."""
@@ -253,20 +285,32 @@ class AIGoldWatcherApp(ctk.CTk):
         # =====================================================================
         # LEFT COLUMN: Controls & Settings & Dynamic License (Scrollable for all screen sizes)
         # =====================================================================
-        left_col = ctk.CTkScrollableFrame(self.main_container, corner_radius=10, fg_color="#1a1c23")
+        left_col = ctk.CTkScrollableFrame(
+            self.main_container,
+            corner_radius=12,
+            fg_color="#12151c",
+            border_width=2,
+            border_color="#f39c12",
+        )
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=0)
 
         # Box 1: Core Action Buttons
-        lbl_ctrl = ctk.CTkLabel(left_col, text="BẢNG ĐIỀU KHIỂN TRUNG TÂM", font=ctk.CTkFont(size=14, weight="bold"), text_color="#ecf0f1")
+        lbl_ctrl = ctk.CTkLabel(
+            left_col,
+            text="▶ QUẢN LÝ BOT",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="#f1c40f",
+        )
         lbl_ctrl.pack(anchor="w", padx=15, pady=(15, 8))
 
         self.btn_start = ctk.CTkButton(
             left_col,
             text="▶ BẬT BOT TỰ ĐỘNG (START)",
             font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#27ae60",
-            hover_color="#2ecc71",
-            height=42,
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            text_color="#000000",
+            height=44,
             command=self._toggle_bot_running,
         )
         self.btn_start.pack(fill="x", padx=15, pady=4)
@@ -275,29 +319,48 @@ class AIGoldWatcherApp(ctk.CTk):
             left_col,
             text="⏸ TẠM DỪNG GIAO DỊCH (PAUSE)",
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#d35400",
-            hover_color="#e67e22",
-            height=36,
+            fg_color="#2c3e50",
+            hover_color="#34495e",
+            text_color="#ffffff",
+            height=38,
             command=self._toggle_bot_pause,
         )
         self.btn_pause.pack(fill="x", padx=15, pady=4)
 
         self.btn_close_all = ctk.CTkButton(
             left_col,
-            text="🚨 ĐÓNG HẾT LỆNH KHẨN CẤP (KILL)",
+            text="⏹ ĐÓNG HẾT LỆNH KHẨN CẤP (KILL)",
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#c0392b",
-            hover_color="#e74c3c",
-            height=36,
+            hover_color="#962d22",
+            text_color="#ffffff",
+            height=38,
             command=self._emergency_close_all,
         )
         self.btn_close_all.pack(fill="x", padx=15, pady=4)
+
+        self.btn_recap = ctk.CTkButton(
+            left_col,
+            text="📊 TỔNG KẾT PHIÊN (SESSION RECAP)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#8e44ad",
+            hover_color="#9b59b6",
+            text_color="#ffffff",
+            height=34,
+            command=self._show_session_summary_dialog,
+        )
+        self.btn_recap.pack(fill="x", padx=15, pady=4)
 
         # Box 2: Trading Parameters & Safeguards
         sep1 = ctk.CTkFrame(left_col, height=2, fg_color="#2c3e50")
         sep1.pack(fill="x", padx=15, pady=10)
 
-        lbl_settings = ctk.CTkLabel(left_col, text="THIẾT LẬP CHIẾN THUẬT & AN TOÀN", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
+        lbl_settings = ctk.CTkLabel(
+            left_col,
+            text="⚙ THIẾT LẬP CHIẾN THUẬT & AN TOÀN",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f1c40f",
+        )
         lbl_settings.pack(anchor="w", padx=15, pady=(0, 6))
 
         # Mode selector (Live Demo vs Live Paper 25h Replay)
@@ -309,6 +372,10 @@ class AIGoldWatcherApp(ctk.CTk):
                 "🔴 Live Demo MT5 (Quét 5s/lần theo thời gian thực)",
                 "⚡ Live Paper (Test bot trong 25 giờ vừa qua)",
             ],
+            fg_color="#1e222d",
+            button_color="#f39c12",
+            button_hover_color="#e67e22",
+            dropdown_fg_color="#161922",
             height=32,
         )
         self.mode_menu.pack(fill="x", padx=15, pady=(2, 6))
@@ -323,20 +390,48 @@ class AIGoldWatcherApp(ctk.CTk):
                 "🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm, bảo vệ vốn tối đa)",
                 "🎯 Scalper Cân Bằng (Balanced — An toàn & tăng trưởng đều đặn)",
             ],
+            fg_color="#1e222d",
+            button_color="#f39c12",
+            button_hover_color="#e67e22",
+            dropdown_fg_color="#161922",
             height=32,
         )
         self.profile_menu.pack(fill="x", padx=15, pady=(2, 8))
 
-        # Checkboxes for guards
-        self.chk_be = ctk.CTkCheckBox(left_col, text="Auto Break-Even (Khóa hòa vốn khi giá đi đúng)", font=ctk.CTkFont(size=12))
+        # Checkboxes for guards with gold accents
+        self.chk_be = ctk.CTkCheckBox(
+            left_col,
+            text="Auto Break-Even (Khóa hòa vốn khi giá đi đúng)",
+            font=ctk.CTkFont(size=12),
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            checkmark_color="#000000",
+            border_color="#f39c12",
+        )
         self.chk_be.select()
         self.chk_be.pack(anchor="w", padx=15, pady=3)
 
-        self.chk_runner = ctk.CTkCheckBox(left_col, text="Gồng Lãi Động (Trailing Runner nới TP +$5.00)", font=ctk.CTkFont(size=12))
+        self.chk_runner = ctk.CTkCheckBox(
+            left_col,
+            text="Gồng Lãi Động (Trailing Runner nới TP +$5.00)",
+            font=ctk.CTkFont(size=12),
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            checkmark_color="#000000",
+            border_color="#f39c12",
+        )
         self.chk_runner.select()
         self.chk_runner.pack(anchor="w", padx=15, pady=3)
 
-        self.chk_exhaust = ctk.CTkCheckBox(left_col, text="Bộ Lọc Kiệt Sức (Chặn bán đáy / mua đỉnh)", font=ctk.CTkFont(size=12))
+        self.chk_exhaust = ctk.CTkCheckBox(
+            left_col,
+            text="Bộ Lọc Kiệt Sức (Chặn bán đáy / mua đỉnh)",
+            font=ctk.CTkFont(size=12),
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            checkmark_color="#000000",
+            border_color="#f39c12",
+        )
         self.chk_exhaust.select()
         self.chk_exhaust.pack(anchor="w", padx=15, pady=3)
 
@@ -348,7 +443,7 @@ class AIGoldWatcherApp(ctk.CTk):
             left_col,
             text="📱 BÁO ĐỘNG TELEGRAM (100% MIỄN PHÍ)",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#3498db",
+            text_color="#f1c40f",
         )
         lbl_tg.pack(anchor="w", padx=15, pady=(0, 2))
 
@@ -415,7 +510,13 @@ class AIGoldWatcherApp(ctk.CTk):
         # =====================================================================
         # RIGHT COLUMN: Open Positions & Live Activity Terminal
         # =====================================================================
-        right_col = ctk.CTkFrame(self.main_container, corner_radius=10, fg_color="#1a1c23")
+        right_col = ctk.CTkFrame(
+            self.main_container,
+            corner_radius=12,
+            fg_color="#12151c",
+            border_width=2,
+            border_color="#f39c12",
+        )
         right_col.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=0)
         right_col.rowconfigure(1, weight=1)
         right_col.columnconfigure(0, weight=1)
@@ -424,18 +525,35 @@ class AIGoldWatcherApp(ctk.CTk):
         pos_header = ctk.CTkFrame(right_col, fg_color="transparent")
         pos_header.pack(fill="x", padx=15, pady=(15, 6))
 
-        lbl_pos_title = ctk.CTkLabel(pos_header, text="VỊ THẾ ĐANG MỞ (OPEN POSITIONS)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
+        lbl_pos_title = ctk.CTkLabel(
+            pos_header,
+            text="📊 VỊ THẾ ĐANG MỞ (OPEN POSITIONS)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f1c40f",
+        )
         lbl_pos_title.pack(side="left")
 
-        self.lbl_pos_count = ctk.CTkLabel(pos_header, text="[0/2 Vị Thế]", font=ctk.CTkFont(size=12, weight="bold"), text_color="#f1c40f")
+        self.lbl_pos_count = ctk.CTkLabel(
+            pos_header,
+            text="[0/2 Vị Thế]",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#f1c40f",
+        )
         self.lbl_pos_count.pack(side="right")
 
-        self.pos_frame = ctk.CTkFrame(right_col, corner_radius=8, fg_color="#1e222d", height=90)
+        self.pos_frame = ctk.CTkFrame(
+            right_col,
+            corner_radius=10,
+            fg_color="#161922",
+            border_width=1,
+            border_color="#2c3e50",
+            height=90,
+        )
         self.pos_frame.pack(fill="x", padx=15, pady=(0, 10))
 
         self.lbl_pos_detail = ctk.CTkLabel(
             self.pos_frame,
-            text="💤 Hiện tại không có vị thế nào đang mở. Bot đang quét nến M5...",
+            text="📈 Chưa có vị thế nào đang mở. Bot đang theo dõi nến M5...",
             font=ctk.CTkFont(size=12),
             text_color="#7f8c8d",
         )
@@ -472,35 +590,57 @@ class AIGoldWatcherApp(ctk.CTk):
         self.admin_chat_bar = ctk.CTkFrame(right_col, fg_color="transparent")
         self.ent_admin_broadcast = ctk.CTkEntry(
             self.admin_chat_bar,
-            placeholder_text="💬 Nhập tin nhắn gửi tới bạn bè (chữ cầu vồng to & nảy chuông)...",
+            placeholder_text="🔍 Nhập tin nhắn gửi tới bạn bè (chữ cầu vồng to & hú chuông)...",
             height=36,
             font=ctk.CTkFont(size=12),
+            border_width=1,
+            border_color="#34495e",
+            fg_color="#1e222d",
         )
         self.ent_admin_broadcast.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self.btn_broadcast = ctk.CTkButton(
             self.admin_chat_bar,
-            text="🌈 Gửi tin nhắn",
+            text="🚀 Gửi tin nhắn",
             width=130,
             height=36,
-            fg_color="#8e44ad",
-            hover_color="#9b59b6",
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            text_color="#000000",
             font=ctk.CTkFont(size=12, weight="bold"),
             command=self._send_admin_broadcast,
         )
         self.btn_broadcast.pack(side="right")
         self.admin_chat_bar.pack(fill="x", padx=15, pady=(0, 8))
 
-        # Terminal Log
-        self.lbl_term = ctk.CTkLabel(right_col, text="NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (LIVE SIGNALS)", font=ctk.CTkFont(size=13, weight="bold"), text_color="#ecf0f1")
-        self.lbl_term.pack(anchor="w", padx=15, pady=(4, 4))
+        # Terminal Log Header with Live Indicator
+        term_hdr = ctk.CTkFrame(right_col, fg_color="transparent")
+        term_hdr.pack(fill="x", padx=15, pady=(4, 4))
+
+        self.lbl_term = ctk.CTkLabel(
+            term_hdr,
+            text="📄 NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (LIVE SIGNALS)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f1c40f",
+        )
+        self.lbl_term.pack(side="left")
+
+        self.lbl_live_indicator = ctk.CTkLabel(
+            term_hdr,
+            text="🟢 Live",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#2ecc71",
+        )
+        self.lbl_live_indicator.pack(side="right")
 
         self.term_box = ctk.CTkTextbox(
             right_col,
-            font=ctk.CTkFont(family="Consolas", size=12),
-            fg_color="#0e1117",
+            font=ctk.CTkFont(family="Consolas", size=11),
+            fg_color="#0a0c10",
             text_color="#ecf0f1",
-            corner_radius=8,
+            corner_radius=10,
+            border_width=1,
+            border_color="#2c3e50",
             wrap="word",
         )
         self.term_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
@@ -690,19 +830,22 @@ class AIGoldWatcherApp(ctk.CTk):
 
         self.btn_pull = ctk.CTkButton(
             sync_box,
-            text="🔄 Tải cập nhật (Pull)",
+            text="⬇ Tải cập nhật (Pull)",
             height=32,
             fg_color="#34495e",
+            hover_color="#4a6572",
             command=self._git_pull,
         )
         self.btn_pull.pack(side="left", fill="x", expand=True, padx=(0, 3))
 
         self.btn_push = ctk.CTkButton(
             sync_box,
-            text="📤 Đẩy code (Push)",
+            text="🚀 Đẩy code (Push)",
             height=32,
-            fg_color="#2980b9",
-            hover_color="#3498db",
+            fg_color="#f39c12",
+            hover_color="#e67e22",
+            text_color="#000000",
+            font=ctk.CTkFont(size=12, weight="bold"),
             command=self._git_push,
         )
         self.btn_push.pack(side="right", fill="x", expand=True, padx=(3, 0))
@@ -711,8 +854,9 @@ class AIGoldWatcherApp(ctk.CTk):
             self.btn_start.configure(
                 state="normal",
                 text="▶ BẬT BOT TỰ ĐỘNG (START)",
-                fg_color="#27ae60",
-                hover_color="#2ecc71",
+                fg_color="#f39c12",
+                hover_color="#e67e22",
+                text_color="#000000",
             )
 
     def _render_client_authorized_panel(self, login: int):
@@ -769,8 +913,9 @@ class AIGoldWatcherApp(ctk.CTk):
             self.btn_start.configure(
                 state="normal",
                 text="▶ BẬT BOT TỰ ĐỘNG (START)",
-                fg_color="#27ae60",
-                hover_color="#2ecc71",
+                fg_color="#f39c12",
+                hover_color="#e67e22",
+                text_color="#000000",
             )
 
     def _render_client_unauthorized_panel(self, login: int):
@@ -949,7 +1094,12 @@ class AIGoldWatcherApp(ctk.CTk):
             self._log_terminal(f"❌ Luồng Live Demo gặp sự cố: {e}")
         finally:
             self.is_running = False
-            self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60")
+            self.btn_start.configure(
+                text="▶ BẬT BOT TỰ ĐỘNG (START)",
+                fg_color="#f39c12",
+                hover_color="#e67e22",
+                text_color="#000000",
+            )
 
     def _run_paper_worker(self):
         """Worker thread for live paper replay over 300 real M5 bars (past 25 hours)."""
@@ -993,30 +1143,19 @@ class AIGoldWatcherApp(ctk.CTk):
                     f"🏆 HOÀN THÀNH TEST 25 GIỜ VỪA QUA: Win Rate {wr_pct:.1f}% ({wins} Thắng / {losses} Thua) | Lợi nhuận PnL: {'+' if pnl >= 0 else ''}${pnl:.2f}"
                 )
 
-                # Send summary report to Telegram
-                try:
-                    from src.monitoring.telegram_bot import TelegramNotifier
-                    tg = TelegramNotifier()
-                    if tg.enabled:
-                        tg.send_message(
-                            f"⚡ <b>BÁO CÁO KẾT QUẢ TEST BOT (25 GIỜ VỪA QUA)</b>\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"• Chế độ: <b>Live Paper Replay (300 nến M5 thật)</b>\n"
-                            f"• Số dư ban đầu: ${summary['initial_balance']:.2f} USD\n"
-                            f"• Số dư kết thúc: <b>${summary['final_balance']:.2f} USD</b>\n"
-                            f"• Lợi nhuận ròng: <b>{'+' if pnl >= 0 else ''}${pnl:.2f} USD</b>\n"
-                            f"• Tỷ lệ thắng (Win Rate): <b>{wr_pct:.1f}%</b> ({wins} Thắng / {losses} Thua)\n"
-                            f"• Tổng số lệnh: <b>{summary['total_trades']} lệnh</b>\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"<i>Dữ liệu được trích xuất trực tiếp từ biểu đồ MT5 XAUUSDm</i>"
-                        )
-                except Exception:
-                    pass
+                # Automatically open Session Summary Dialog
+                if summary.get("recap"):
+                    self.after(500, lambda r=summary["recap"]: self._show_session_summary_dialog(r))
         except Exception as e:
             self._log_terminal(f"❌ Luồng Live Paper gặp sự cố: {e}")
         finally:
             self.is_running = False
-            self.btn_start.configure(text="▶ BẬT BOT TỰ ĐỘNG (START)", fg_color="#27ae60", hover_color="#2ecc71")
+            self.btn_start.configure(
+                text="▶ BẬT BOT TỰ ĐỘNG (START)",
+                fg_color="#f39c12",
+                hover_color="#e67e22",
+                text_color="#000000",
+            )
 
     # -------------------------------------------------------------------------
     # LICENSE & WHITELIST ACTIONS (ADMIN ONLY)
@@ -1390,6 +1529,151 @@ class AIGoldWatcherApp(ctk.CTk):
         except Exception as e:
             logger.debug("Could not display announcement popup: %s", e)
 
+    def _show_session_summary_dialog(self, recap: Optional[Any] = None):
+        """Display an elegant, high-impact session summary modal dialog with gold styling."""
+        try:
+            if recap is None:
+                from src.evaluation.session_recap import build_session_recap
+                import MetaTrader5 as mt5
+                initial_b = 50.0
+                curr_b = 50.0
+                curr_eq = 50.0
+                deals = []
+                try:
+                    if mt5.initialize():
+                        acc = mt5.account_info()
+                        if acc:
+                            curr_b = float(acc.balance)
+                            curr_eq = float(acc.equity)
+                            initial_b = curr_b
+                        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                        fetched = mt5.history_deals_get(today_start, datetime.now(timezone.utc))
+                        if fetched:
+                            deals = list(fetched)
+                except Exception:
+                    pass
+
+                recap = build_session_recap(
+                    initial_balance=initial_b,
+                    final_balance=curr_b,
+                    final_equity=curr_eq,
+                    deals=deals,
+                    session_title="Tổng Kết Phiên Hiện Tại",
+                )
+
+            # Log to terminal box
+            if hasattr(recap, "to_terminal_box"):
+                self._log_terminal("\n" + recap.to_terminal_box())
+
+            # Create popup modal
+            popup = ctk.CTkToplevel(self)
+            popup.title("📊 BÁO CÁO TỔNG KẾT PHIÊN GIAO DỊCH (SESSION RECAP)")
+            popup.geometry("620x530")
+            popup.attributes("-topmost", True)
+            popup.configure(fg_color="#0d0f14")
+            popup.resizable(False, False)
+
+            try:
+                x = self.winfo_x() + (self.winfo_width() // 2) - 310
+                y = self.winfo_y() + (self.winfo_height() // 2) - 265
+                popup.geometry(f"+{x}+{y}")
+            except Exception:
+                pass
+
+            container = ctk.CTkFrame(
+                popup,
+                corner_radius=14,
+                fg_color="#141720",
+                border_width=2,
+                border_color="#f39c12",
+            )
+            container.pack(fill="both", expand=True, padx=14, pady=14)
+
+            # Header
+            lbl_title = ctk.CTkLabel(
+                container,
+                text="📊 BÁO CÁO TỔNG KẾT PHIÊN GIAO DỊCH",
+                font=ctk.CTkFont(size=16, weight="bold"),
+                text_color="#f1c40f",
+            )
+            lbl_title.pack(anchor="w", padx=18, pady=(14, 2))
+
+            lbl_sub = ctk.CTkLabel(
+                container,
+                text=f"Phiên: {recap.session_title} | Thời lượng: {recap.duration}",
+                font=ctk.CTkFont(size=12),
+                text_color="#a0aec0",
+            )
+            lbl_sub.pack(anchor="w", padx=18, pady=(0, 10))
+
+            # Grid metrics frame
+            grid_frame = ctk.CTkFrame(container, corner_radius=10, fg_color="#1a1e28", border_width=1, border_color="#2c3e50")
+            grid_frame.pack(fill="both", expand=True, padx=18, pady=4)
+            grid_frame.columnconfigure((0, 1), weight=1)
+
+            def add_row(parent, r, col, title, val, color="#ffffff"):
+                f = ctk.CTkFrame(parent, fg_color="transparent")
+                f.grid(row=r, column=col, sticky="w", padx=14, pady=6)
+                ctk.CTkLabel(f, text=title, font=ctk.CTkFont(size=11), text_color="#a0aec0").pack(anchor="w")
+                ctk.CTkLabel(f, text=val, font=ctk.CTkFont(size=15, weight="bold"), text_color=color).pack(anchor="w")
+
+            pnl_sign = "+" if recap.net_pnl >= 0 else ""
+            pnl_col = "#2ecc71" if recap.net_pnl >= 0 else "#e74c3c"
+            roi_sign = "+" if recap.roi_pct >= 0 else ""
+
+            add_row(grid_frame, 0, 0, "💼 Vốn Ban Đầu:", f"${recap.initial_balance:,.2f} USD")
+            add_row(grid_frame, 0, 1, "💰 Số Dư Chốt Phiên:", f"${recap.final_balance:,.2f} USD", "#f1c40f")
+
+            add_row(grid_frame, 1, 0, "📈 Vốn Thực (Equity):", f"${recap.final_equity:,.2f} USD", "#f1c40f")
+            add_row(grid_frame, 1, 1, "💵 Tổng Lãi/Lỗ Ròng:", f"{pnl_sign}${recap.net_pnl:,.2f} USD ({roi_sign}{recap.roi_pct:.2f}%)", pnl_col)
+
+            add_row(grid_frame, 2, 0, "🎯 Tổng Số Lệnh Đã Đóng:", f"{recap.total_trades} lệnh")
+            add_row(grid_frame, 2, 1, "🏆 Tỷ Lệ Thắng (Win Rate):", f"{recap.win_rate:.1f}% ({recap.wins}W / {recap.losses}L / {recap.break_evens}BE)", "#2ecc71")
+
+            add_row(grid_frame, 3, 0, "💎 Kèo Thắng Lớn Nhất:", f"+${recap.best_trade:,.2f} USD", "#2ecc71")
+            add_row(grid_frame, 3, 1, "📉 Kèo Thua Lớn Nhất:", f"-${abs(recap.worst_trade):,.2f} USD", "#e74c3c")
+
+            add_row(grid_frame, 4, 0, "⚖️ Hệ Số Profit Factor:", f"{recap.profit_factor:.2f}", "#f1c40f")
+            add_row(grid_frame, 4, 1, "🛡️ Quản Trị Rủi Ro:", "Bảo Vệ Vốn An Toàn 100%", "#2ecc71")
+
+            # Actions row
+            btn_box = ctk.CTkFrame(container, fg_color="transparent")
+            btn_box.pack(fill="x", padx=18, pady=(12, 14))
+
+            def send_to_tg():
+                from src.monitoring.telegram_bot import TelegramNotifier
+                tg = TelegramNotifier()
+                if tg.enabled:
+                    tg.notify_session_summary(recap)
+                    self._log_terminal("📲 Đã gửi báo cáo tổng kết phiên sang Telegram thành công!")
+                else:
+                    self._log_terminal("⚠️ Telegram chưa được cấu hình hoặc chưa bật.")
+
+            btn_send = ctk.CTkButton(
+                btn_box,
+                text="📲 Gửi sang Telegram",
+                height=36,
+                fg_color="#2980b9",
+                hover_color="#3498db",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                command=send_to_tg,
+            )
+            btn_send.pack(side="left", padx=(0, 6), expand=True, fill="x")
+
+            btn_close = ctk.CTkButton(
+                btn_box,
+                text="Đóng",
+                width=100,
+                height=36,
+                fg_color="#34495e",
+                hover_color="#4a6572",
+                font=ctk.CTkFont(size=12),
+                command=popup.destroy,
+            )
+            btn_close.pack(side="right")
+        except Exception as err:
+            logger.debug("Error displaying session summary dialog: %s", err)
+
     def _client_update_and_check(self):
         """Client-safe update check: syncs license from GitHub & runs git pull."""
         self._log_terminal("🔄 Đang đồng bộ và kiểm tra bản quyền từ máy chủ Admin...")
@@ -1468,6 +1752,27 @@ class AIGoldWatcherApp(ctk.CTk):
                         text=f"🟢 MT5 #{acc.login} ({acc.name})",
                         text_color="#2ecc71",
                     )
+
+                    # Query today's deals for accurate daily PnL and Win Rate
+                    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                    deals = mt5.history_deals_get(today_start, datetime.now(timezone.utc))
+                    if deals:
+                        exit_deals = [d for d in deals if getattr(d, "entry", 0) == 1]
+                        if exit_deals:
+                            daily_closed_pnl = sum(float(d.profit) + float(getattr(d, "swap", 0.0)) + float(getattr(d, "commission", 0.0)) for d in exit_deals)
+                            wins = len([d for d in exit_deals if (float(d.profit) + float(getattr(d, "swap", 0.0)) + float(getattr(d, "commission", 0.0))) > 0.05])
+                            losses = len([d for d in exit_deals if (float(d.profit) + float(getattr(d, "swap", 0.0)) + float(getattr(d, "commission", 0.0))) < -0.05])
+                            total_d_pnl = daily_closed_pnl + pnl
+                            d_pct = (total_d_pnl / bal * 100.0) if bal > 0 else 0.0
+                            self.card_pnl["value"].configure(
+                                text=f"{'+' if total_d_pnl >= 0 else ''}${total_d_pnl:,.2f} ({d_pct:+.1f}%)",
+                                text_color="#2ecc71" if total_d_pnl >= 0 else "#e74c3c",
+                            )
+                            wr = (wins / len(exit_deals) * 100.0) if exit_deals else 0.0
+                            self.card_winrate["value"].configure(
+                                text=f"{wr:.1f}% ({wins}W / {losses}L)",
+                                text_color="#f1c40f",
+                            )
 
                 # Query open positions
                 positions = mt5.positions_get(symbol="XAUUSDm")

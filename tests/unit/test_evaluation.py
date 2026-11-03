@@ -87,3 +87,43 @@ def test_deflated_sharpe_ratio():
     returns = [0.01, -0.005, 0.008, 0.012, -0.003, 0.004, 0.006] * 6  # 42 observations
     dsr = compute_deflated_sharpe(observed_sharpe=1.8, num_trials=10, returns=returns)
     assert 0.0 <= dsr <= 1.0
+
+
+def test_build_session_recap():
+    from src.evaluation.session_recap import build_session_recap, SessionRecapData
+
+    class MockTrade:
+        def __init__(self, pnl):
+            self.net_pnl = pnl
+
+    trades = [MockTrade(600.0), MockTrade(-200.0), MockTrade(150.0), MockTrade(0.0)]
+    recap = build_session_recap(
+        initial_balance=10000.0,
+        final_balance=10550.0,
+        final_equity=10550.0,
+        trades=trades,
+        session_title="Institutional Gold Scalper Test",
+    )
+
+    assert isinstance(recap, SessionRecapData)
+    assert recap.total_trades == 4
+    assert recap.wins == 2
+    assert recap.losses == 1
+    assert recap.break_evens == 1
+    assert recap.win_rate == 50.0
+    assert recap.net_pnl == 550.0
+    assert recap.best_trade == 600.0
+    assert recap.worst_trade == -200.0
+    assert recap.profit_factor == 750.0 / 200.0
+
+    # Test Telegram HTML formatting
+    tg_html = recap.to_telegram_html()
+    assert "BÁO CÁO TỔNG KẾT PHIÊN GIAO DỊCH" in tg_html
+    assert "$10,000.00 USD" in tg_html
+    assert "+$550.00 USD" in tg_html
+    assert "Institutional Gold Scalper Test" in tg_html
+
+    # Test Terminal Box formatting
+    box_str = recap.to_terminal_box()
+    assert "TỔNG KẾT PHIÊN GIAO DỊCH" in box_str
+    assert "50.0%" in box_str

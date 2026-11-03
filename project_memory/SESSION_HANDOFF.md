@@ -8,10 +8,10 @@
 
 ## 1. Session Intent & Accomplishment
 **Mission**:
-1. Implement real-time trade closure alerts on Telegram and Desktop Terminal prominently displaying whether a trade hit TP Win, SL Win / Break-even, or SL Hit, along with the exact current account balance and equity post-trade.
-2. Update the Desktop App profile menu to dynamically communicate capital-proportional returns (`⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi 15% - 35%/ngày hoặc cao hơn theo vốn)`), eliminating misleading flat dollar targets after $10,000 capital test demonstrated +$600 profit.
-3. Harden the auto-update mechanism (`git checkout -f -B main origin/main` + `git clean -fd` with direct ZIP fallback) against untracked file aborts on client PCs.
-**Result**: 100% SUCCESS. Full test suite passing at 108 / 108 tests (100%).
+1. Implement automatic post-session trade recaps (covering total trades, profit/loss in USD & %, balance, win rate, best/worst trade, profit factor) broadcast to Telegram and in-app modal popup.
+2. Complete full luxury aesthetic redesign of Desktop App (`src/ui/desktop_app.py`) with glowing Cyber Gold & Obsidian styling matching institutional mockups.
+3. Integrate interactive `/summary` command in Telegram bot.
+**Result**: 100% SUCCESS. Full test suite passing at 111 / 111 tests (100%).
 
 ---
 

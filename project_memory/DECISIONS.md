@@ -382,34 +382,28 @@
 
 ---
 
-### ADR-028: Live Trade Closure Alerts with Account Balance Snapshot & Dynamic Capital ROI Labeling
+### ADR-029: Post-Session Performance Analytics & Cyber Gold UI Aesthetic Overhaul
 - **Date**: 2026-11-04
 - **Status**: Accepted
 - **Context**:
-  1. The user requested that every trade closure (whether TP Win, SL Win / Break-even, or SL Hit) explicitly notify the user and all connected friends via Telegram and in-app logs with the exact real-time account balance post-trade.
-  2. The trading profile label previously displayed a hardcoded flat target of `$10-$20/ngày`. In testing on a $10,000 account, the bot's dynamic risk budget (4.0% risk, 6.0% TP) generated a +$600 profit (+6%) in a single session. The flat "$10-$20" phrasing caused misunderstandings that profits were capped regardless of capital size.
-  3. Client machines extracted from ZIP without `.git` previously encountered `fatal: not a git repository` or git merge aborts due to untracked files.
+  1. The user requested automatic post-session trade recaps (covering total trades, profit/loss in USD and %, final balance, win rate, best/worst trades, and profit factor).
+  2. The user requested a visual overhaul making the application significantly more eye-catching, matching a custom Obsidian & Cyber Gold / Amber Glow design.
 - **Decision**:
-  1. **Enhanced Trade Closure Alerts (`src/monitoring/telegram_bot.py` & `src/main.py`)**:
-     - Upgraded `notify_order_closed` to accept `equity: Optional[float] = None`.
-     - Distinct visual classifications:
-       - 🏆 `CHỐT LỜI THÀNH CÔNG (TP WIN)`
-       - 🛡️ `HÒA VỐN / SL DƯƠNG THÀNH CÔNG (BREAK-EVEN WIN)`
-       - 🛑 `ĐÓNG LỆNH CẮT LỖ (SL HIT)`
-     - Prominently displays:
-       - `💰 SỐ DƯ HIỆN TẠI (BALANCE): $... USD`
-       - `📈 VỐN THỰC HIỆN TẠI (EQUITY): $... USD`
-     - In `run_live_demo_loop`, re-queries `mt5.account_info()` immediately post-trade to guarantee exact balance and equity reflection.
-     - Logs colored notification tags to the Desktop App's Live Signals terminal.
-  2. **Dynamic Capital ROI Profile Labeling (`src/ui/desktop_app.py`)**:
-     - Updated profile menu options to:
-       `⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi 15% - 35%/ngày hoặc cao hơn theo vốn)`
-       `🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm, bảo vệ vốn tối đa)`
-       `🎯 Scalper Cân Bằng (Balanced — An toàn & tăng trưởng đều đặn)`
-  3. **Resilient Client Auto-Updater (`src/ui/desktop_app.py`)**:
-     - Enhanced `_apply_new_update` to execute `git checkout -f -B main origin/main` followed by `git clean -fd`, eliminating untracked file aborts on client PCs.
-     - Automatically falls back to direct GitHub ZIP download and extraction (`_download_and_extract_github_zip()`) if Git is not present or returns errors.
-- **Consequences**: Users have full visibility into balance changes after every win/loss across both Telegram and Desktop App, capital-proportional scaling is accurately communicated, and client update execution is 100% resilient across heterogeneous Windows environments. All 108 unit tests passing.
+  1. **Session Recap Engine (`src/evaluation/session_recap.py`)**:
+     - Built `SessionRecapData` and `build_session_recap()` supporting dual sources (ClosedTrade objects and MT5 history deals).
+     - Renders rich Telegram HTML summary (`to_telegram_html()`) and ASCII gold terminal box (`to_terminal_box()`).
+     - Added `notify_session_summary()` to `TelegramNotifier` and registered interactive `/summary` command.
+     - Automatic triggers in `run_paper_session` and `run_live_demo_loop` at session completion or stop/pause.
+  2. **Obsidian & Cyber Gold Desktop App Redesign (`src/ui/desktop_app.py`)**:
+     - Upgraded container aesthetics: `#141720` card background with 12px rounded corners and glowing amber/gold borders (`border_color="#f39c12"`).
+     - Upgraded 4 KPI cards with custom icons (`💼`, `📈`, `💵`, `🎯`) and mini bar-chart visual indicator ` ▂▄▆█`.
+     - Added prominent Gold Start button (`fg_color="#f39c12"`, text color `#000000`).
+     - Styled section headers in bright gold typography (`#f1c40f`).
+     - Integrated `_show_session_summary_dialog()` pop-up modal on screen with 1-click `[📲 Gửi sang Telegram]` export.
+  3. **Unit Tests**:
+     - Added `test_build_session_recap` in `tests/unit/test_evaluation.py`.
+     - Added `test_notify_session_summary` and `test_process_incoming_summary_command` in `tests/unit/test_telegram_bot.py`.
+- **Consequences**: Traders receive instant, transparent analytics at the end of every trading session on both Desktop App and Telegram, and the application now possesses a luxury Cyber Gold aesthetic matching institutional trading terminals. Test suite passing at 111/111 tests (100%).
 
 
 

@@ -284,16 +284,23 @@ def run_paper_session(
                 daily_pnl=balance - settings.risk.reference_balance_usd,
             )
 
-    logger.info("==================================================")
-    logger.info("           PAPER TRADING SESSION SUMMARY          ")
-    logger.info("==================================================")
-    logger.info("Initial Balance : $%.2f USD", live_balance)
-    logger.info("Final Balance   : $%.2f USD", balance)
-    logger.info("Total Trades    : %d", len(paper_mgr.trade_history))
+    from src.evaluation.session_recap import build_session_recap
+    recap = build_session_recap(
+        initial_balance=live_balance,
+        final_balance=balance,
+        final_equity=balance,
+        trades=paper_mgr.trade_history,
+        session_title="Paper Replay 300 nến M5 (25 giờ)",
+    )
+    logger.info("\n%s", recap.to_terminal_box())
+
+    # Send Session Recap to Telegram
+    from src.monitoring.telegram_bot import TelegramNotifier
+    telegram = TelegramNotifier()
+    telegram.notify_session_summary(recap)
+
     wins = len([t for t in paper_mgr.trade_history if t.net_pnl > 0])
     wr = (wins / len(paper_mgr.trade_history)) if paper_mgr.trade_history else 0.0
-    logger.info("Win Rate        : %.1f%%", wr * 100)
-    logger.info("Database Path   : %s", settings.storage.db_path)
 
     return {
         "initial_balance": live_balance,
@@ -303,6 +310,7 @@ def run_paper_session(
         "wins": wins,
         "losses": len(paper_mgr.trade_history) - wins,
         "win_rate": wr,
+        "recap": recap,
     }
 
 
@@ -748,6 +756,24 @@ def run_live_demo_loop(
     except KeyboardInterrupt:
         logger.info("Real-time loop gracefully stopped by user.")
     finally:
+        try:
+            from src.evaluation.session_recap import build_session_recap
+            fresh_acc = mt5.account_info()
+            curr_b = float(fresh_acc.balance) if fresh_acc else acc.balance
+            curr_eq = float(fresh_acc.equity) if fresh_acc else acc.equity
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_deals = mt5.history_deals_get(today_start, datetime.now(timezone.utc))
+            recap = build_session_recap(
+                initial_balance=settings.risk.reference_balance_usd,
+                final_balance=curr_b,
+                final_equity=curr_eq,
+                deals=list(today_deals) if today_deals else [],
+                session_title="Live Demo Session (Thời gian thực)",
+            )
+            logger.info("\n%s", recap.to_terminal_box())
+            telegram.notify_session_summary(recap)
+        except Exception as err:
+            logger.debug("Error generating final session recap: %s", err)
         client.disconnect()
 
 

@@ -76,6 +76,7 @@ class TelegramNotifier:
         url = f"https://api.telegram.org/bot{self.bot_token}/setMyCommands"
         commands = [
             {"command": "status", "description": "Trạng thái bot & nến MT5"},
+            {"command": "summary", "description": "Tổng kết phiên (lệnh, lời lỗ, số dư)"},
             {"command": "balance", "description": "Số dư, Equity & PnL ngày"},
             {"command": "positions", "description": "Chi tiết lệnh đang mở"},
             {"command": "signals", "description": "Tín hiệu AI phân tích gần nhất"},
@@ -218,6 +219,18 @@ class TelegramNotifier:
         )
         return self.send_message(msg)
 
+    def notify_session_summary(
+        self,
+        recap: Any,
+        target_chat_id: Optional[str] = None,
+    ) -> bool:
+        """Broadcast rich session recap report to Telegram."""
+        if hasattr(recap, "to_telegram_html"):
+            msg = recap.to_telegram_html()
+        else:
+            msg = str(recap)
+        return self.send_message(msg, target_chat_id=target_chat_id)
+
     def notify_break_even(
         self,
         ticket: int,
@@ -351,6 +364,8 @@ class TelegramNotifier:
 
                 if text.startswith("/status"):
                     self._reply_status(context, target_chat_id=chat_id)
+                elif text.startswith("/summary") or text.startswith("/tongket") or text.startswith("/recap"):
+                    self._reply_summary(context, target_chat_id=chat_id)
                 elif text.startswith("/balance"):
                     self._reply_balance(context, target_chat_id=chat_id)
                 elif text.startswith("/positions"):
@@ -440,6 +455,33 @@ class TelegramNotifier:
             f"<i>Cập nhật: {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}</i>"
         )
         self.send_message(text, target_chat_id=target_chat_id)
+
+    def _reply_summary(self, context: Dict[str, Any], target_chat_id: Optional[str] = None) -> None:
+        """Handle /summary interactive command with instant session recap."""
+        from src.evaluation.session_recap import build_session_recap
+        acc = context.get("account")
+        ref_bal = context.get("reference_balance", 50.0)
+        curr_bal = float(acc.balance) if acc else ref_bal
+        curr_eq = float(acc.equity) if acc else curr_bal
+
+        deals = []
+        try:
+            import MetaTrader5 as mt5
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            fetched = mt5.history_deals_get(today_start, datetime.now(timezone.utc))
+            if fetched:
+                deals = list(fetched)
+        except Exception:
+            pass
+
+        recap = build_session_recap(
+            initial_balance=ref_bal,
+            final_balance=curr_bal,
+            final_equity=curr_eq,
+            deals=deals,
+            session_title="Phiên Hôm Nay (Daily Live Session)",
+        )
+        self.notify_session_summary(recap, target_chat_id=target_chat_id)
 
     def _reply_balance(self, context: Dict[str, Any], target_chat_id: Optional[str] = None) -> None:
         acc = context.get("account")
@@ -607,6 +649,7 @@ class TelegramNotifier:
             f"🎮 <b>HƯỚNG DẪN CÁC LỆNH ĐIỀU KHIỂN & TRA CỨU:</b>\n\n"
             f"📊 <b>Tra Cứu Thông Tin:</b>\n"
             f"• /status — Trạng thái hoạt động, kết nối MT5 & nến M5\n"
+            f"• /summary — Báo cáo tổng kết phiên (lệnh, lời/lỗ, số dư)\n"
             f"• /balance — Tra cứu số dư, vốn (Equity) & PnL ngày\n"
             f"• /positions — Xem chi tiết lệnh đang chạy trên MT5\n"
             f"• /signals — 3 tín hiệu AI phân tích gần nhất\n\n"
@@ -626,6 +669,7 @@ class TelegramNotifier:
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"📊 <b>Tra Cứu Thông Tin:</b>\n"
             f"• /status — Kiểm tra bot, kết nối MT5, nến M5 & regime\n"
+            f"• /summary — Báo cáo tổng kết phiên (lệnh, lời/lỗ, số dư)\n"
             f"• /balance — Xem số dư, Equity & PnL ngày hôm nay\n"
             f"• /positions — Xem chi tiết lệnh đang chạy (SL, TP, lãi/lỗ)\n"
             f"• /signals — Xem các tín hiệu AI phân tích gần nhất\n\n"
