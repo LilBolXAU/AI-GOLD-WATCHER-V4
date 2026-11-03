@@ -123,6 +123,11 @@ def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, 
     # Synchronize paper trading with live MT5 terminal if connected
     account_info = client.get_account_info() if not use_mock else None
     if account_info is not None:
+        from src.config.license import verify_account_authorized
+        if not verify_account_authorized(getattr(account_info, "login", 0)):
+            logger.error("⛔ TRUY CẬP BỊ TỪ CHỐI! Tài khoản MT5 #%s chưa được cấp quyền.", getattr(account_info, "login", "N/A"))
+            print(f"\n⛔ TRUY CẬP BỊ TỪ CHỐI: Tài khoản MT5 #{getattr(account_info, 'login', 'N/A')} chưa được cấp quyền sử dụng. Liên hệ Admin (LilBoiXAU)!\n")
+            return
         live_balance = float(account_info.balance)
         logger.info(
             "Synchronized Paper Session with Live MT5 Terminal: Account #%s (Balance: $%.2f USD)",
@@ -328,6 +333,16 @@ def run_live_demo_loop(settings: SystemSettings, poll_interval_sec: float, logge
     acc = mt5.account_info()
     if acc is None:
         logger.error("Unable to retrieve MT5 account info.")
+        return
+
+    from src.config.license import verify_account_authorized
+    if not verify_account_authorized(acc.login):
+        logger.error("⛔ TRUY CẬP BỊ TỪ CHỐI! Tài khoản MT5 #%s chưa được cấp quyền.", acc.login)
+        print("\n" + "=" * 65)
+        print("⛔ TRUY CẬP BỊ TỪ CHỐI!")
+        print(f"Tài khoản MetaTrader 5 #{acc.login} CHƯA ĐƯỢC CẤP QUYỀN SỬ DỤNG.")
+        print("Vui lòng liên hệ Admin (LilBoiXAU) để được kích hoạt bản quyền!")
+        print("=" * 65 + "\n")
         return
 
     logger.info("Connected to DEMO Account: #%s (%s) | Balance: $%.2f", acc.login, acc.name, acc.balance)

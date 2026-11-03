@@ -1,0 +1,8 @@
+{
+  "_comment": "Danh sach tai khoan MetaTrader 5 duoc Admin (LilBoiXAU) cap quyen su dung",
+  "admin": "LilBoiXAU",
+  "license_active": true,
+  "allowed_mt5_accounts": [
+    434467985
+  ]
+}
