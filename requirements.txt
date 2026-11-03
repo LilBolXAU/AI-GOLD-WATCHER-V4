@@ -1,0 +1,10 @@
+# AI GOLD WATCHER V4 Dependencies (Python 3.13.7 x86-64 on Windows 11)
+metatrader5>=5.0.6231
+pandas>=2.2.0
+numpy>=2.0.0
+pydantic>=2.10.0
+pytest>=8.0.0
+streamlit>=1.30.0
+scikit-learn>=1.6.0
+requests>=2.30.0
+python-dotenv>=1.0.0

@@ -1,0 +1,33 @@
+# Environment and credentials
+.env
+*.env.local
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases & logs
+data/*.db
+data/*.db-wal
+data/*.db-shm
+logs/*.log
+
+# Reports generated during tests
+reports/*.md
+!reports/README.md
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE & OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
