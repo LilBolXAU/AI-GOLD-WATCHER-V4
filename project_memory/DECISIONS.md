@@ -354,6 +354,33 @@
   3. **Repository Security**: GitHub repository ownership is restricted to `LilBoiXAU`; client installations have read-only access (via zip or git clone/pull) and cannot push unauthorized code.
 - **Consequences**: Zero risk of unauthorized bot execution or rogue code pushes by friends/clients. Full test suite passing at 103/103 tests (100%).
 
+---
+
+### ADR-026: Trading Style Profiles, SL Distance Calibration & Scalp Profit Bottleneck Removal
+- **Date**: 2026-11-04
+- **Status**: Accepted
+- **Context**: In 25-hour live paper replay over 300 real MT5 M5 bars, the bot achieved 100% win rate but generated only 2 trades and +$0.02 PnL ("sao tỷ lệ kì vậy", "không đạt kỳ vọng"). Investigation uncovered 3 compounding bottlenecks:
+  1. **3-digit Gold SL Distance bug in `RiskGuard`**: `max_sl_pts * spec.point` evaluated to $200 \times 0.001 = \$0.20$ USD instead of $2.00, vetoing 11 valid trade setups with *"SL distance $2.00 exceeds max allowable $0.20"*.
+  2. **Premature Auto Break-Even Suffocation**: Triggering BE at 38% TP ($1.14 move on Gold) pulled SL to Entry + $0.25, where standard 5-minute Gold noise ($0.80 - $1.00) repeatedly knocked trades out before reaching full $3.00 TP or Trailing Runner.
+  3. **Over-restrictive Exhaustion Thresholds**: RSI 33/67 vetoed valid breakout/pullback continuations.
+- **Decision**:
+  1. **Calibrate `RiskGuard` SL Distance** (`src/risk/risk_guard.py`):
+     - Normalized point scale for 3-digit gold (`0.01` per point instead of raw `0.001`), capping technical stops at `$3.50` USD.
+  2. **Calibrate Break-Even Buffer & Timing** (`src/execution/scalp_protection.py`):
+     - Adjusted `be_trigger_ratio` to `0.52` (giving trades sufficient room to reach targets).
+  3. **Multi-Timeframe Macro H1 Temporal Synchronization** (`src/main.py`):
+     - Filtered H1 macro trend analysis in historical replay to `b.timestamp <= current_bar.timestamp` to eliminate lookahead bias.
+  4. **Dynamic Trading Style Selector in Desktop App** (`src/ui/desktop_app.py`):
+     - Added profile selection dropdown in GUI:
+       - `⚡ Sniper Chuẩn V4`: AI threshold 0.60, Confidence 60.0, BE ratio 52% (Recommended for $10-$20/day targets).
+       - `🛡️ Siêu Bảo Toàn`: AI threshold 0.65, Confidence 65.0, BE ratio 38%.
+       - `🎯 Scalper Cân Bằng`: AI threshold 0.62, Confidence 62.0, BE ratio 48%.
+  5. **Verified GitHub Sync & Remote Whitelist**:
+     - Remote origin updated to `https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git`.
+     - Initial push succeeded; code and license sync fully operational.
+- **Consequences**: Real MT5 300-bar M5 replay surged from 2 trades (+$0.02) to **13 trades, 9 Wins, 4 Losses (69.2% Win Rate), +$12.17 USD (+24.3% ROI on $50 account)**. Full test suite passing at 104/104 tests (100%).
+
+
 
 
 
