@@ -74,6 +74,8 @@ class AIGoldWatcherApp(ctk.CTk):
         self.current_account: Optional[int] = None
         self.last_seen_announcement_id: Optional[str] = None
         self.has_active_update_banner: bool = False
+        self.dismissed_build_number: int = 0
+        self.latest_remote_info: Optional[dict] = None
 
         # Wire logging to GUI
         self.log_handler = GuiLogHandler(self.log_queue)
@@ -192,7 +194,26 @@ class AIGoldWatcherApp(ctk.CTk):
             font=ctk.CTkFont(size=12, weight="bold"),
             command=self._apply_new_update,
         )
-        self.btn_apply_update.pack(side="right", padx=15, pady=8)
+        self.btn_apply_update.pack(side="right", padx=(5, 10), pady=8)
+
+        self.btn_dismiss_update = ctk.CTkButton(
+            self.update_banner_frame,
+            text="✕",
+            width=28,
+            height=30,
+            fg_color="#34495e",
+            hover_color="#7f8c8d",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._dismiss_update_banner,
+        )
+        self.btn_dismiss_update.pack(side="right", padx=(5, 0), pady=8)
+
+    def _dismiss_update_banner(self):
+        """Dismiss current update banner."""
+        if hasattr(self, "latest_remote_info") and self.latest_remote_info:
+            self.dismissed_build_number = int(self.latest_remote_info.get("build", 0))
+        self.update_banner_frame.pack_forget()
+        self.has_active_update_banner = False
 
     def _build_metrics_cards(self):
         """Build 4 KPI summary cards."""
@@ -1061,12 +1082,26 @@ class AIGoldWatcherApp(ctk.CTk):
         """Apply newly detected update from master GitHub repo."""
         self._log_terminal("🔄 Đang tải bản cập nhật mới nhất từ Admin...")
         try:
-            res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, timeout=15)
-            out = (res.stdout or "").strip() or (res.stderr or "").strip()
-            self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
+            from src.config.updater import save_local_version
+            # If latest remote info is available, save it immediately so local version matches remote
+            if hasattr(self, "latest_remote_info") and self.latest_remote_info:
+                save_local_version(self.latest_remote_info)
+                self.dismissed_build_number = int(self.latest_remote_info.get("build", 0))
+
+            if Path(".git").exists():
+                subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, timeout=10)
+                res = subprocess.run(["git", "pull", "--rebase", "origin", "main"], capture_output=True, text=True, timeout=15)
+                if res.returncode != 0:
+                    res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, timeout=15)
+                out = (res.stdout or "").strip() or (res.stderr or "").strip()
+                self._log_terminal(f"📦 Kết quả cập nhật:\n{out}")
+            else:
+                self._log_terminal("ℹ️ Đang chạy từ thư mục giải nén. Đã cập nhật số hiệu phiên bản thành công!")
+
             if self.has_active_update_banner:
                 self.update_banner_frame.pack_forget()
                 self.has_active_update_banner = False
+
             self._log_terminal("🎉 BẠN ĐÃ CẬP NHẬT LÊN PHIÊN BẢN MỚI NHẤT THÀNH CÔNG!")
             sync_remote_license(timeout=2.5)
             if self.current_account:
@@ -1199,8 +1234,12 @@ class AIGoldWatcherApp(ctk.CTk):
             from src.config.updater import check_remote_update, check_remote_announcement, get_local_announcement
             # 1. Check for new update
             has_update, remote_info = check_remote_update(timeout=3.5)
-            if has_update and remote_info and not self.has_active_update_banner:
-                self.after(0, lambda info=remote_info: self._show_update_banner(info))
+            if has_update and remote_info:
+                r_build = int(remote_info.get("build", 0))
+                # Only show if not already dismissed for this build and banner not active
+                if r_build > getattr(self, "dismissed_build_number", 0) and not self.has_active_update_banner:
+                    self.latest_remote_info = remote_info
+                    self.after(0, lambda info=remote_info: self._show_update_banner(info))
 
             # 2. Check for new announcement (from remote, or fallback to local disk)
             ann = check_remote_announcement(timeout=3.5) or get_local_announcement()
