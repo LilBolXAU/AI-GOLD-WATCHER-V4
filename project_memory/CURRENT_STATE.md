@@ -41,8 +41,8 @@
 - **Bot Unit Tests**: 96 / 96 passed (including `test_risk.py` scale-in pyramiding test, `test_exhaustion_filter.py` with 7 tests, `test_price_action.py` with 4 tests, `test_strategies.py` with 7 strategies, `test_session_router.py`, `test_news_guard.py`, `test_mt5_bridge.py`, `test_meta_labeler.py`, `test_scalp_protection.py`, `test_macro_trend.py`, `test_telegram_bot.py`).
 - **Bot Integration Tests**: 1 / 1 passed (`test_full_trading_pipeline`).
 - **Bot Backtest Tests**: 3 / 3 passed.
-- **Total Test Suite**: 103 passed in 7.00s (100% pass rate).
-- **Desktop Application**: `src/ui/desktop_app.py` (CustomTkinter Windows 11 Dark Mode trading dashboard, 4 KPI cards, 1-click Start/Pause/Emergency Close controls, live open positions table, real-time logging terminal, dynamic Admin vs Client role-based authorization, MT5 license whitelist manager, and 1-click GitHub sync). Launcher: `run_app.bat` and `start_and_update.bat`.
+- **Total Test Suite**: 104 passed in 6.77s (100% pass rate).
+- **Desktop Application**: `src/ui/desktop_app.py` (CustomTkinter Windows 11 Dark Mode trading dashboard, 4 KPI cards, 1-click Start/Pause/Emergency Close controls, live open positions table, real-time logging terminal, dynamic Admin vs Client role-based authorization, MT5 license whitelist manager, Live Paper Replay on 300 real M5 bars / past 25 hours, in-app Telegram Chat ID configuration & instant test alert, and 1-click GitHub sync). Launcher: `run_app.bat` and `start_and_update.bat`.
 - **Dynamic Role Separation**: Admin (#434467985 / LilBoiXAU) retains exclusive control over MT5 account licensing and code pushes. Client installations automatically hide all admin controls and verify authorizations against master GitHub repo, blocking unauthorized execution.
 - **Skill Playbook Verification Tests**: 
   - `risk-control-unit-testing-framework`: 75 / 75 passed.
