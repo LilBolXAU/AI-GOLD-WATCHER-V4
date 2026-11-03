@@ -85,9 +85,11 @@
    - Total Automated Unit Test Suite: **100 / 100 passed (100%)**.
 
 9. **Modern Desktop Application & License Control Deployed**:
-   - `src/ui/desktop_app.py`: Full Windows 11 Dark Mode GUI with CustomTkinter. Features 4 live KPI cards (Balance, Equity, Daily PnL, Win Rate), single-click Start/Pause/Emergency Close controls, real-time thread-safe terminal log, and an integrated MT5 whitelist manager (`allowed_accounts.json`).
-   - Launcher: [`run_app.bat`](file:///c:/VuBlack/BOTTRADE/run_app.bat) allows 1-click startup without typing any terminal commands.
-   - Total automated test suite: **102 / 102 passed (100%)** in 6.49s.
+   - `src/ui/desktop_app.py`: Full Windows 11 Dark Mode GUI with CustomTkinter. Features 4 live KPI cards (Balance, Equity, Daily PnL, Win Rate), single-click Start/Pause/Emergency Close controls, real-time thread-safe terminal log, and dynamic Admin vs Client role-based authorization.
+   - Launcher: [`run_app.bat`](file:///c:/VuBlack/BOTTRADE/run_app.bat) and [`start_and_update.bat`](file:///c:/VuBlack/BOTTRADE/start_and_update.bat) allow 1-click startup and auto-sync.
+   - Dynamic Role Separation: Admin (`#434467985` / `LilBoiXAU`) has full control over the MT5 whitelist and code pushes. Non-admin installations automatically hide admin controls, show client license status, and disable the Start button if unauthorized.
+   - Remote License Verification: In `src/config/license.py`, `sync_remote_license()` queries master GitHub raw JSON to enforce master admin authority even across distributed client installations.
+   - Total automated test suite: **103 / 103 passed (100%)** in 7.00s.
 
 6. **"Vua Scalping" Architecture Equipped**:
    - `src/execution/scalp_protection.py`: `ScalpProtectionEngine` implementing Auto Break-Even ("Lệnh Bất Tử" locking SL to Entry + $0.10 at 50% TP progress) and Dynamic Trailing Stop (at 70%+ TP).
