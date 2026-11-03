@@ -71,16 +71,16 @@ class ExhaustionFilter:
             lower_wick = min(open_p, close_p) - low_p
             lower_wick_ratio = lower_wick / c_range
 
-            # a) Severe oversold momentum depletion
-            if rsi < 33.0:
-                return True, f"RSI={rsi:.1f} < 33.0 indicates severe oversold exhaustion. Prohibits selling into the bottom."
+            # a) Severe oversold momentum depletion (True extreme <= 30.0)
+            if rsi <= 30.0:
+                return True, f"RSI={rsi:.1f} <= 30.0 indicates severe oversold exhaustion. Prohibits selling into the bottom."
 
             # b) Hyper-extension below Bollinger Lower Band & EMA20
             if (close_p < bb_lower) and ((ema_20 - close_p) > 2.0 * atr):
                 return True, f"Price ({close_p:.2f}) stretched > 2.0 ATR below EMA20 and outside lower band. High mean-reversion risk."
 
-            # c) Strong rejection wick absorbing selling pressure at lows
-            if lower_wick_ratio >= 0.45 and close_p < ema_20:
+            # c) Strong rejection wick absorbing selling pressure at lows (Pinbar >= 55%)
+            if lower_wick_ratio >= 0.55 and close_p < ema_20:
                 return True, f"Bullish rejection wick ({lower_wick_ratio*100:.0f}%) detected at lows. Buying pressure absorbing sell flow."
 
             # d) Rejection right at a key round number support
@@ -102,16 +102,16 @@ class ExhaustionFilter:
             upper_wick = high_p - max(open_p, close_p)
             upper_wick_ratio = upper_wick / c_range
 
-            # a) Severe overbought momentum depletion
-            if rsi > 67.0:
-                return True, f"RSI={rsi:.1f} > 67.0 indicates severe overbought exhaustion. Prohibits buying at the top."
+            # a) Severe overbought momentum depletion (True extreme >= 70.0)
+            if rsi >= 70.0:
+                return True, f"RSI={rsi:.1f} >= 70.0 indicates severe overbought exhaustion. Prohibits buying at the top."
 
             # b) Hyper-extension above Bollinger Upper Band & EMA20
             if (close_p > bb_upper) and ((close_p - ema_20) > 2.0 * atr):
                 return True, f"Price ({close_p:.2f}) stretched > 2.0 ATR above EMA20 and outside upper band. High pullback risk."
 
-            # c) Strong rejection wick absorbing buying pressure at highs
-            if upper_wick_ratio >= 0.45 and close_p > ema_20:
+            # c) Strong rejection wick absorbing buying pressure at highs (Pinbar >= 55%)
+            if upper_wick_ratio >= 0.55 and close_p > ema_20:
                 return True, f"Bearish rejection wick ({upper_wick_ratio*100:.0f}%) detected at highs. Selling pressure pushing price down."
 
             # d) Rejection right at a key round number resistance

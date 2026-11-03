@@ -35,12 +35,12 @@ class ScalpProtectionEngine:
 
     def __init__(
         self,
-        be_trigger_ratio: float = 0.38,         # Trigger BE at 38% progress to TP (was 0.50)
+        be_trigger_ratio: float = 0.52,         # Trigger BE at 52% progress to TP (gives room to breathe)
         be_buffer_usd: float = 0.25,            # +$0.25 buffer above entry (covers full ~20pt gold spread + net profit)
-        trailing_trigger_ratio: float = 0.65,   # Trigger Trailing Stop at 65% progress to TP (was 0.70)
+        trailing_trigger_ratio: float = 0.65,   # Trigger Trailing Stop at 65% progress to TP
         trailing_step_usd: float = 0.20,        # Minimum move before updating trailing SL
         enable_trailing_runner: bool = True,    # Gồng Lãi Động mode
-        runner_trigger_ratio: float = 0.82,     # Expand runner at 82% TP progress
+        runner_trigger_ratio: float = 0.80,     # Expand runner at 80% TP progress
         runner_tp_expansion_usd: float = 5.00,  # Expand TP by +$5.00 USD on gold
         runner_trailing_dist_usd: float = 0.80, # Distance behind peak for runner trailing
     ):

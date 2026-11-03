@@ -6,6 +6,7 @@ Supports CLI operations for Paper Trading, Backtesting, and Diagnostics.
 import argparse
 import sys
 import time
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 from datetime import datetime, timezone
 import pandas as pd
@@ -37,6 +38,7 @@ from src.risk.risk_guard import RiskGuard
 from src.risk.news_guard import NewsGuard
 from src.execution.paper_broker import PaperBroker
 from src.execution.paper_trade_manager import PaperTradeManager
+from src.execution.scalp_protection import ScalpProtectionEngine
 from src.storage.database import init_db
 from src.storage.repositories import TradeRepository, SignalRepository, EquityRepository
 from src.monitoring.logger import setup_logger
@@ -92,7 +94,15 @@ def run_diagnostics(settings: SystemSettings, logger) -> bool:
     return True
 
 
-def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, logger) -> None:
+def run_paper_session(
+    settings: SystemSettings,
+    bar_count: int,
+    use_mock: bool,
+    logger,
+    ai_threshold: float = 0.60,
+    conf_threshold: float = 60.0,
+    be_trigger_ratio: float = 0.52,
+) -> Optional[dict]:
     """Execute paper trading simulation over streaming/historical bars."""
     logger.info("Starting Paper Trading Engine (MockMode=%s, Bars=%d)...", use_mock, bar_count)
 
@@ -118,8 +128,9 @@ def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, 
     indicator_engine = SharedIndicatorEngine()
     regime_detector = MarketRegimeDetector()
     selector = AdaptiveStrategySelector()
-    confidence_engine = ConfidenceEngine(threshold=65.0)
-    meta_labeler = MetaLabelEngine(threshold=0.65)
+    confidence_engine = ConfidenceEngine(threshold=conf_threshold)
+    meta_labeler = MetaLabelEngine(threshold=ai_threshold)
+    scalp_engine = ScalpProtectionEngine(be_trigger_ratio=be_trigger_ratio, be_buffer_usd=0.25)
     # Synchronize paper trading with live MT5 terminal if connected
     account_info = client.get_account_info() if not use_mock else None
     if account_info is not None:
@@ -145,9 +156,14 @@ def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, 
         max_sl_pts=settings.risk.max_sl_points,
         max_risk_pct=0.04,
     )
-    paper_mgr = PaperTradeManager(spec=spec, risk_guard=risk_guard)
+    paper_mgr = PaperTradeManager(spec=spec, risk_guard=risk_guard, scalp_engine=scalp_engine)
 
     all_bars = client.get_rates("XAUUSDm", Timeframe.M5, count=bar_count, closed_only=True)
+    all_h1_bars = []
+    try:
+        all_h1_bars = client.get_rates("XAUUSDm", Timeframe.H1, count=max(100, bar_count // 12 + 50), closed_only=True)
+    except Exception:
+        pass
     logger.info("Processing %d closed historical bars through execution loop...", len(all_bars))
 
     for idx in range(50, len(all_bars)):
@@ -187,14 +203,12 @@ def run_paper_session(settings: SystemSettings, bar_count: int, use_mock: bool, 
         # Regime detection
         regime_state = regime_detector.update(enriched)
 
-        # Multi-Timeframe Analysis: Fetch H1 closed bars to establish macro trend direction
+        # Multi-Timeframe Analysis: Synchronize H1 bars up to current bar timestamp
         macro_result = None
-        try:
-            h1_bars = client.get_rates("XAUUSDm", Timeframe.H1, count=50, closed_only=True)
-            if h1_bars:
-                macro_result = MacroTrendDetector.analyze(h1_bars)
-        except Exception:
-            pass
+        if all_h1_bars:
+            h1_window = [b for b in all_h1_bars if b.timestamp <= current_bar.timestamp]
+            if len(h1_window) >= 10:
+                macro_result = MacroTrendDetector.analyze(h1_window[-50:])
 
         # Signal generation & selection if less than 2 positions are active (Institutional Pyramiding)
         if len(paper_mgr.active_positions) < 2:
@@ -314,7 +328,14 @@ def run_backtest_session(settings: SystemSettings, bar_count: int, output_path: 
     logger.info("Tearsheet saved to: %s", out_file.resolve())
 
 
-def run_live_demo_loop(settings: SystemSettings, poll_interval_sec: float, logger) -> None:
+def run_live_demo_loop(
+    settings: SystemSettings,
+    poll_interval_sec: float,
+    logger,
+    ai_threshold: float = 0.60,
+    conf_threshold: float = 60.0,
+    be_trigger_ratio: float = 0.52,
+) -> None:
     """
     Execute real-time autonomous trading loop directly on MT5 DEMO account.
     Listens for new M5 closed bars, checks open positions, and places orders via MT5OrderBridge.
@@ -330,8 +351,8 @@ def run_live_demo_loop(settings: SystemSettings, poll_interval_sec: float, logge
     from src.monitoring.telegram_bot import TelegramNotifier
 
     telegram = TelegramNotifier()
-    meta_labeler = MetaLabelEngine(threshold=0.65)
-    scalp_engine = ScalpProtectionEngine(be_trigger_ratio=0.38, be_buffer_usd=0.25)
+    meta_labeler = MetaLabelEngine(threshold=ai_threshold)
+    scalp_engine = ScalpProtectionEngine(be_trigger_ratio=be_trigger_ratio, be_buffer_usd=0.25)
 
     try:
         bridge = MT5OrderBridge(symbol="XAUUSDm")
@@ -366,7 +387,7 @@ def run_live_demo_loop(settings: SystemSettings, poll_interval_sec: float, logge
     indicator_engine = SharedIndicatorEngine()
     regime_detector = MarketRegimeDetector()
     selector = AdaptiveStrategySelector()
-    confidence_engine = ConfidenceEngine(threshold=65.0)
+    confidence_engine = ConfidenceEngine(threshold=conf_threshold)
     news_guard = NewsGuard()
     spec = DEFAULT_EXNESS_XAUUSD
     risk_guard = RiskGuard(

@@ -247,10 +247,24 @@ class AIGoldWatcherApp(ctk.CTk):
             ],
             height=32,
         )
-        self.mode_menu.pack(fill="x", padx=15, pady=(2, 8))
+        self.mode_menu.pack(fill="x", padx=15, pady=(2, 6))
+
+        # Trading Style / Profile selector
+        lbl_profile = ctk.CTkLabel(left_col, text="Phong cách giao dịch:", font=ctk.CTkFont(size=12), text_color="#bdc3c7")
+        lbl_profile.pack(anchor="w", padx=15, pady=0)
+        self.profile_menu = ctk.CTkOptionMenu(
+            left_col,
+            values=[
+                "⚡ Sniper Chuẩn V4 (Khuyên dùng — Lãi mục tiêu $10-$20/ngày)",
+                "🛡️ Siêu Bảo Toàn (Conservative — Hòa vốn sớm)",
+                "🎯 Scalper Cân Bằng (Balanced — An toàn & hiệu quả)",
+            ],
+            height=32,
+        )
+        self.profile_menu.pack(fill="x", padx=15, pady=(2, 8))
 
         # Checkboxes for guards
-        self.chk_be = ctk.CTkCheckBox(left_col, text="Auto Break-Even (Hòa vốn @ 38% TP + $0.25)", font=ctk.CTkFont(size=12))
+        self.chk_be = ctk.CTkCheckBox(left_col, text="Auto Break-Even (Khóa hòa vốn khi giá đi đúng)", font=ctk.CTkFont(size=12))
         self.chk_be.select()
         self.chk_be.pack(anchor="w", padx=15, pady=3)
 
@@ -774,13 +788,35 @@ class AIGoldWatcherApp(ctk.CTk):
         except Exception as e:
             self._log_terminal(f"❌ Lỗi khi đóng vị thế: {e}")
 
+    def _get_profile_params(self) -> tuple[float, float, float, str]:
+        """
+        Returns (ai_threshold, conf_threshold, be_trigger_ratio, profile_name)
+        based on selection in self.profile_menu.
+        """
+        choice = self.profile_menu.get() if hasattr(self, "profile_menu") else ""
+        if "Bảo Toàn" in choice:
+            return 0.65, 65.0, 0.38, "🛡️ Siêu Bảo Toàn (Conservative)"
+        elif "Cân Bằng" in choice:
+            return 0.62, 62.0, 0.48, "🎯 Scalper Cân Bằng (Balanced)"
+        else:
+            return 0.60, 60.0, 0.52, "⚡ Sniper Chuẩn V4 (Khuyên dùng)"
+
     def _run_live_worker(self):
         """Worker thread for live-demo polling."""
         from src.main import run_live_demo_loop
         from src.config.settings import SystemSettings
         try:
             settings = SystemSettings()
-            run_live_demo_loop(settings=settings, poll_interval_sec=5.0, logger=logging.getLogger())
+            ai_th, conf_th, be_ratio, prof_name = self._get_profile_params()
+            self._log_terminal(f"🎯 Thiết lập: {prof_name} | AI: {ai_th*100:.0f}% | Conf: {conf_th:.0f} | BE: {int(be_ratio*100)}% TP")
+            run_live_demo_loop(
+                settings=settings,
+                poll_interval_sec=5.0,
+                logger=logging.getLogger(),
+                ai_threshold=ai_th,
+                conf_threshold=conf_th,
+                be_trigger_ratio=be_ratio,
+            )
         except Exception as e:
             self._log_terminal(f"❌ Luồng Live Demo gặp sự cố: {e}")
         finally:
@@ -793,12 +829,22 @@ class AIGoldWatcherApp(ctk.CTk):
         from src.config.settings import SystemSettings
         try:
             settings = SystemSettings()
+            ai_th, conf_th, be_ratio, prof_name = self._get_profile_params()
             self._log_terminal("⚡ ========================================================")
             self._log_terminal("⚡ BẮT ĐẦU LIVE PAPER TEST: 300 nến M5 (25 giờ qua) từ MT5...")
+            self._log_terminal(f"⚡ Phong cách: {prof_name} (AI Win-Rate: {ai_th*100:.0f}%, Conf: {conf_th:.0f}, BE: {int(be_ratio*100)}% TP)")
             self._log_terminal("⚡ Đang kết nối dữ liệu thật và chạy mô phỏng vào lệnh...")
             self._log_terminal("⚡ ========================================================")
 
-            summary = run_paper_session(settings=settings, bar_count=300, use_mock=False, logger=logging.getLogger())
+            summary = run_paper_session(
+                settings=settings,
+                bar_count=300,
+                use_mock=False,
+                logger=logging.getLogger(),
+                ai_threshold=ai_th,
+                conf_threshold=conf_th,
+                be_trigger_ratio=be_ratio,
+            )
             if summary:
                 bal = summary["final_balance"]
                 pnl = summary["net_pnl"]

@@ -209,13 +209,15 @@ class RiskGuard:
 
         # 8. Position Sizing & Dollar Risk Budget ($2.00 / 4% on $50)
         sl_dist = cand.risk_distance
+        point_scale = 0.01 if getattr(self.spec, "digits", 2) >= 3 else getattr(self.spec, "point", 0.01)
+        max_sl_dist_usd = max(3.50, self.max_sl_pts * point_scale)
         vol, risk_usd, is_sized, size_reason = calculate_position_size(
             sl_distance=sl_dist,
             balance=self.drawdown_guard.state.current_equity,
             spec=self.spec,
             target_risk_usd=self.target_risk_usd,
             max_risk_pct=self.max_risk_pct,
-            max_sl_distance=self.max_sl_pts * self.spec.point,
+            max_sl_distance=max_sl_dist_usd,
         )
 
         if not is_sized:
