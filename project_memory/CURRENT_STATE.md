@@ -7,9 +7,9 @@
 ---
 
 ## 1. Current Development Stage
-- **Current Stage**: **Complete V4 Production Implementation & Verification (Post-Session Recaps & Cyber Gold UI Overhaul)**.
+- **Current Stage**: **Complete V4 Production Implementation & Verification (Dynamic Lot Scaling & Robust Multi-Client Execution)**.
 - **Next Milestone**: Live demo monitoring with selected trading profiles and multi-client testing.
-- **Phase Gate Status**: All 12 modules, full test suite (111/111 tests passed), storage persistence, CLI application, CustomTkinter desktop app with luxury Cyber Gold aesthetic, automated post-session recaps on Telegram & GUI, and GitHub repo are 100% complete and verified operational.
+- **Phase Gate Status**: All 12 modules, full test suite (112/112 tests passed), storage persistence, CLI application, CustomTkinter desktop app with luxury Cyber Gold aesthetic, automated post-session recaps on Telegram & GUI, dynamic lot sizing up to 5.0 lots, MT5 Algo Trading pre-flight verification, auto symbol resolution, and direct ZIP fallback updater are 100% complete and verified operational.
 
 ---
 
@@ -38,10 +38,10 @@
 ---
 
 ## 3. Current Test Status
-- **Bot Unit Tests**: 100 / 100 passed (including `test_updater.py` with 4 tests, `test_risk.py`, `test_exhaustion_filter.py`, `test_price_action.py`, `test_strategies.py`, `test_session_router.py`, `test_news_guard.py`, `test_mt5_bridge.py`, `test_meta_labeler.py`, `test_scalp_protection.py`, `test_macro_trend.py`, `test_telegram_bot.py`).
+- **Bot Unit Tests**: 104 / 104 passed (including `test_updater.py` with 4 tests, `test_risk.py`, `test_exhaustion_filter.py`, `test_price_action.py`, `test_strategies.py`, `test_session_router.py`, `test_news_guard.py`, `test_mt5_bridge.py` with 4 tests, `test_meta_labeler.py`, `test_scalp_protection.py`, `test_macro_trend.py`, `test_telegram_bot.py`).
 - **Bot Integration Tests**: 1 / 1 passed (`test_full_trading_pipeline`).
 - **Bot Backtest Tests**: 3 / 3 passed.
-- **Total Test Suite**: 108 passed in 8.06s (100% pass rate).
+- **Total Test Suite**: 112 passed in 11.33s (100% pass rate).
 - **Desktop Application**: `src/ui/desktop_app.py` (CustomTkinter Windows 11 Dark Mode trading dashboard, 4 KPI cards, 1-click Start/Pause/Emergency Close controls, live open positions table, real-time logging terminal, dynamic Admin vs Client role-based authorization, MT5 license whitelist manager, Live Paper Replay on 300 real M5 bars / past 25 hours, in-app Telegram Chat ID configuration & instant test alert, Admin Rainbow Chat broadcast, auto-update notification bar, and 1-click GitHub sync). Launcher: `run_app.bat` and `start_and_update.bat`.
 - **Dynamic Role Separation**: Admin (#434467985 / LilBoiXAU) retains exclusive control over MT5 account licensing and code pushes. Client installations automatically hide all admin controls and verify authorizations against master GitHub repo, blocking unauthorized execution.
 - **Skill Playbook Verification Tests**: 

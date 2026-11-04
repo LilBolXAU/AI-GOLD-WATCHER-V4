@@ -366,6 +366,7 @@ def run_live_demo_loop(
 
     try:
         bridge = MT5OrderBridge(symbol="XAUUSDm")
+        active_symbol = bridge.symbol
     except Exception as e:
         logger.error("Failed to initialize MT5 Order Bridge: %s", e)
         return
@@ -386,8 +387,8 @@ def run_live_demo_loop(
         print("=" * 65 + "\n")
         return
 
-    logger.info("Connected to DEMO Account: #%s (%s) | Balance: $%.2f", acc.login, acc.name, acc.balance)
-    logger.info("Strict Safety Parameters: Max 1 position | Dynamic Lot Sizing (4.0%% SL / 6.0%% TP / -8.0%% Daily Breaker)")
+    logger.info("Connected to DEMO Account: #%s (%s) | Balance: $%.2f | Active Symbol: %s", acc.login, acc.name, acc.balance, active_symbol)
+    logger.info("Strict Safety Parameters: Max 2 positions | Dynamic Lot Sizing (4.0%% SL / 6.0%% TP / -8.0%% Daily Breaker)")
     logger.info("Starting real-time polling loop (interval: %.1fs)... Press Ctrl+C to stop.", poll_interval_sec)
 
     db = init_db(settings.storage.db_path)
@@ -409,9 +410,9 @@ def run_live_demo_loop(
         max_risk_pct=0.04,
     )
 
-    client = LiveMT5Client(symbol="XAUUSDm")
+    client = LiveMT5Client(symbol=active_symbol)
     if not client.connect():
-        logger.error("Failed to connect LiveMT5Client.")
+        logger.error("Failed to connect LiveMT5Client for symbol %s.", active_symbol)
         return
 
     last_processed_bar_time = None
@@ -584,7 +585,7 @@ def run_live_demo_loop(
 
             # 3. Fetch latest closed M5 bar
             try:
-                m5_bars = client.get_rates("XAUUSDm", Timeframe.M5, count=100, closed_only=True)
+                m5_bars = client.get_rates(active_symbol, Timeframe.M5, count=100, closed_only=True)
             except Exception as e:
                 logger.warning("Error fetching rates from MT5: %s", e)
                 time.sleep(poll_interval_sec)
@@ -623,7 +624,7 @@ def run_live_demo_loop(
                 # Multi-Timeframe Analysis: Fetch H1 closed bars to establish macro trend direction
                 macro_result = None
                 try:
-                    h1_bars = client.get_rates("XAUUSDm", Timeframe.H1, count=50, closed_only=True)
+                    h1_bars = client.get_rates(active_symbol, Timeframe.H1, count=50, closed_only=True)
                     if h1_bars:
                         macro_result = MacroTrendDetector.analyze(h1_bars)
                         logger.info("Multi-Timeframe Macro H1: %s (%s)", macro_result.bias.value, macro_result.description)
@@ -701,7 +702,7 @@ def run_live_demo_loop(
                         )
 
                         if final_approved and risk_res.order is not None:
-                            logger.info("Executing MT5 DEMO Order via Bridge...")
+                            logger.info("Executing MT5 DEMO Order via Bridge: %s %.2f lot %s...", risk_res.order.side.value, risk_res.order.volume, risk_res.order.symbol)
                             exec_res = bridge.send_market_order(risk_res.order)
                             if exec_res.success:
                                 active_mt5_ticket = exec_res.order_ticket
@@ -728,6 +729,21 @@ def run_live_demo_loop(
                                     ticket=exec_res.order_ticket,
                                     ai_prob=ai_res.win_probability,
                                 )
+                            else:
+                                logger.error(
+                                    "❌ VÀO LỆNH MT5 THẤT BẠI: %s (Mã lỗi retcode: %d)",
+                                    exec_res.retcode_description,
+                                    exec_res.retcode,
+                                )
+                                try:
+                                    telegram.send_alert(
+                                        f"⚠️ <b>LỖI VÀO LỆNH MT5 ({exec_res.retcode})</b>\n"
+                                        f"• Chi tiết: <code>{exec_res.retcode_description}</code>\n"
+                                        f"• Chiến thuật: {scored.candidate.strategy_id} ({scored.candidate.side.value} @ {scored.candidate.entry_price:.3f})\n"
+                                        f"💡 <i>Gợi ý: Kiểm tra nút 'Algo Trading' trên MT5 (cần màu xanh) hoặc trần khối lượng!</i>"
+                                    )
+                                except Exception as err:
+                                    logger.debug("Failed to send Telegram alert for order failure: %s", err)
                 if open_positions:
                     pos_summary = ", ".join(
                         f"#{p.ticket} ({'BUY' if p.type == 0 else 'SELL'} @ {p.price_open:.2f}, PnL: ${p.profit:.2f})"

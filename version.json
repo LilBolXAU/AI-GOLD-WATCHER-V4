@@ -1,6 +1,6 @@
 {
   "version": "4.2.0",
-  "build": 2026110409,
-  "release_time": "2026-11-04 04:04:57",
-  "description": "Bản cập nhật mới nhất từ Admin LilBoiXAU"
+  "build": 2026110410,
+  "release_time": "2026-11-04 09:23:35",
+  "description": "Fix volume cap, MT5 Algo Trading guard, auto symbol resolution & direct ZIP updater"
 }

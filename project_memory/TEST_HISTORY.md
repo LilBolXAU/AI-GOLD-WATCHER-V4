@@ -275,5 +275,42 @@
   - Exit Code: 0 (OK)
 - **Status**: **PASS (100%)**
 
+---
+
+### RUN-015: Automated Session Recaps & Cyber Gold UI Test Suite
+- **Date**: 2026-11-04 03:55:00 UTC+7
+- **Environment**: Windows 11 x86-64 | Python 3.13.7
+- **Test Command**:
+  ```powershell
+  python -m pytest
+  ```
+- **Scope**: Evaluates post-session trade recap engine, ASCII terminal boxes, and Telegram summary notifications.
+- **Results**:
+  - Total Tests: 111
+  - Passed: 111
+  - Failed: 0
+  - Duration: 9.03 seconds
+  - Exit Code: 0 (OK)
+- **Status**: **PASS (100%)**
+
+---
+
+### RUN-016: Dynamic Volume Scaling, MT5 Algo Trading Pre-Flight & Multi-Client Bridge Suite
+- **Date**: 2026-11-04 09:23:20 UTC+7
+- **Environment**: Windows 11 x86-64 | Python 3.13.7
+- **Test Command**:
+  ```powershell
+  python -m pytest tests/
+  ```
+- **Scope**: Evaluates dynamic volume bounds up to 5.0 lots, MT5 Algo Trading button disabled rejection, auto symbol detection, and adaptive filling mode.
+- **Results**:
+  - Total Tests: 112
+  - Passed: 112
+  - Failed: 0
+  - Duration: 11.33 seconds
+  - Exit Code: 0 (OK)
+- **Status**: **PASS (100%)**
+
+
 
 

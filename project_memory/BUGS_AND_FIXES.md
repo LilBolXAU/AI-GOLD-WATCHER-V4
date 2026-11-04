@@ -106,6 +106,27 @@
 
 ---
 
+### BUG-009: Volume Safety Cap Rejection & Silent Execution Failures on Large Balances
+- **Date Discovered**: 2026-11-04
+- **Severity**: Critical
+- **Component**: `src/execution/mt5_order_bridge.py` (`MT5OrderBridge`), `src/main.py` (`run_live_demo_loop`)
+- **Symptom**: Signals appeared with high AI probability, but no orders were executed in MT5 on client machine ($200.00 balance) while working fine on Admin machine ($50.81 balance).
+- **Root Cause**:
+  1. `mt5_order_bridge.py:144` contained an obsolete hardcoded volume safety cap `if order.volume > 0.01: return ExecutionResult(...)`. On $200+ balances, dynamic 4% risk calculated volume = 0.02 lot (or higher), which was hard rejected.
+  2. `main.py:705` had no `else:` branch after `exec_res = bridge.send_market_order(...)`, causing order rejections to be completely silent with zero logs in GUI or Telegram.
+  3. Client accounts with non-standard gold symbols (`XAUUSD` instead of `XAUUSDm`) failed `symbol_info` lookup.
+  4. Disabled MT5 "Algo Trading" button caused retcode 10027 (`TRADE_RETCODE_CLIENT_DISABLES_AT`).
+- **Fix Applied**:
+  1. Replaced hardcoded 0.01 cap with dynamic broker step-rounding and a 5.0 lots safety cap.
+  2. Added explicit `else:` error branch in `main.py` logging retcodes to GUI and dispatching Telegram alerts.
+  3. Auto-resolved symbols across `XAUUSDm`, `XAUUSD`, `GOLD`, etc.
+  4. Added `terminal_info().trade_allowed` pre-flight check alerting users to enable Algo Trading on MT5.
+  5. Implemented direct GitHub ZIP fallback updater when Git is not installed.
+- **Regression Verification**: `tests/unit/test_mt5_bridge.py:test_volume_cap_enforced` and `test_algo_trading_disabled_rejected`; all 112 pytest tests pass.
+- **Status**: RESOLVED
+
+---
+
 ## Defect Log Template (For Future Bugs)
 
 ```markdown

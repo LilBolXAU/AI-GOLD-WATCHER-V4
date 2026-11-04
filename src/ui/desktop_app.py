@@ -1689,6 +1689,9 @@ class AIGoldWatcherApp(ctk.CTk):
                     self._log_terminal("📦 Mã nguồn của bạn đã là phiên bản mới nhất!")
                 else:
                     self._log_terminal(f"📦 Đã tải bản cập nhật mới:\n{out}")
+            else:
+                self._log_terminal("📦 Chưa tìm thấy kho Git cục bộ. Đang tải mã nguồn mới nhất trực tiếp từ GitHub ZIP...")
+                self._download_and_extract_github_zip()
 
             if self.current_account:
                 is_auth = verify_account_authorized(self.current_account)

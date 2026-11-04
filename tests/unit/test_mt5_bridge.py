@@ -45,13 +45,21 @@ def test_volume_cap_enforced(mock_account, mock_init):
     bridge = MT5OrderBridge(symbol="XAUUSDm")
     bridge.get_open_positions = MagicMock(return_value=[])
 
-    # Attempt to send 0.05 lot (violates 0.01 lot safety cap)
+    mock_info = MagicMock()
+    mock_info.volume_min = 0.01
+    mock_info.volume_max = 50.0
+    mock_info.volume_step = 0.01
+    mock_info.digits = 3
+    mock_info.filling_mode = 2
+    bridge._mt5.symbol_info = MagicMock(return_value=mock_info)
+
+    # Attempt to send 6.0 lots (violates 5.0 lot safety cap)
     bad_order = ApprovedOrder(
         magic_number=400001,
         strategy_id="TREND_FOLLOWING",
         symbol="XAUUSDm",
         side=OrderSide.BUY,
-        volume=0.05,
+        volume=6.0,
         entry_price=2650.0,
         stop_loss=2649.0,
         take_profit=2652.0,
@@ -63,3 +71,39 @@ def test_volume_cap_enforced(mock_account, mock_init):
     assert not result.success
     assert result.retcode == 10014
     assert "Volume safety cap" in result.retcode_description
+
+
+@patch("MetaTrader5.initialize", return_value=True)
+@patch("MetaTrader5.account_info")
+def test_algo_trading_disabled_rejected(mock_account, mock_init):
+    mock_acc = MagicMock()
+    mock_acc.trade_mode = 0  # DEMO
+    mock_acc.trade_expert = True
+    mock_acc.login = 434467985
+    mock_account.return_value = mock_acc
+
+    bridge = MT5OrderBridge(symbol="XAUUSDm")
+    bridge.get_open_positions = MagicMock(return_value=[])
+
+    # Simulate terminal Algo Trading button disabled
+    mock_term = MagicMock()
+    mock_term.trade_allowed = False
+    bridge._mt5.terminal_info = MagicMock(return_value=mock_term)
+
+    test_order = ApprovedOrder(
+        magic_number=400001,
+        strategy_id="TREND_FOLLOWING",
+        symbol="XAUUSDm",
+        side=OrderSide.BUY,
+        volume=0.01,
+        entry_price=2650.0,
+        stop_loss=2649.0,
+        take_profit=2652.0,
+        risk_usd=1.0,
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    result = bridge.send_market_order(test_order)
+    assert not result.success
+    assert result.retcode == 10027
+    assert "Algo Trading" in result.retcode_description

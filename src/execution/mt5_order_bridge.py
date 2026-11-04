@@ -75,6 +75,23 @@ class MT5OrderBridge:
         self.magic_base = magic_base
         self._mt5: Any = None
         self._verify_environment()
+        self._resolve_symbol()
+
+    def _resolve_symbol(self) -> str:
+        """
+        Auto-detect and resolve Gold symbol on MT5 terminal.
+        Supports standard accounts (XAUUSDm), raw/pro accounts (XAUUSD), and international variants (GOLD).
+        """
+        candidates = [self.symbol, "XAUUSDm", "XAUUSD", "GOLD", "XAUUSD.m", "XAUUSD.a"]
+        for sym in candidates:
+            info = self._mt5.symbol_info(sym)
+            if info is not None:
+                self._mt5.symbol_select(sym, True)
+                if sym != self.symbol:
+                    logger.info("MT5 Gold symbol auto-resolved from '%s' to '%s'", self.symbol, sym)
+                self.symbol = sym
+                return sym
+        return self.symbol
 
     def _verify_environment(self) -> None:
         """Verify MT5 terminal and enforce DEMO-only safety latch."""
@@ -120,7 +137,7 @@ class MT5OrderBridge:
     def send_market_order(self, order: ApprovedOrder) -> ExecutionResult:
         """
         Execute market deal on MT5 Demo terminal.
-        Enforces volume limit (0.01 lot) and mutual exclusivity (max 1 position).
+        Enforces dynamic volume bounds (safety cap 5.0 lots) and mutual exclusivity (max 2 positions).
         """
         # 1. Double check account is DEMO
         account = self._mt5.account_info()
@@ -131,24 +148,59 @@ class MT5OrderBridge:
                 retcode_description="CRITICAL SAFETY: Non-demo account rejected.",
             )
 
-        # 2. Enforce mutual exclusivity (max 1 position)
+        # 2. Check MT5 terminal Algorithmic Trading toggle button
+        terminal = self._mt5.terminal_info()
+        if terminal is not None and not getattr(terminal, "trade_allowed", True):
+            return ExecutionResult(
+                success=False,
+                retcode=10027,
+                retcode_description="Nút 'Algo Trading' trên MetaTrader 5 chưa được bật! Vui lòng bấm nút 'Algo Trading' trên thanh công cụ MT5 (chuyển sang màu xanh).",
+            )
+
+        # 3. Enforce maximum concurrent positions (max 2 positions for institutional pyramiding)
         open_pos = self.get_open_positions()
-        if len(open_pos) >= 1:
+        if len(open_pos) >= 2:
             return ExecutionResult(
                 success=False,
                 retcode=10025,
-                retcode_description=f"Mutual exclusivity: Position #{open_pos[0].ticket} already open.",
+                retcode_description=f"Mutual exclusivity: Maximum concurrent positions (2) reached: #{open_pos[0].ticket}, #{open_pos[1].ticket}.",
             )
 
-        # 3. Enforce volume cap
-        if order.volume > 0.01:
+        # 4. Resolve symbol & broker specs
+        info = self._mt5.symbol_info(self.symbol)
+        if info is None:
+            self._resolve_symbol()
+            info = self._mt5.symbol_info(self.symbol)
+
+        if info is None:
+            return ExecutionResult(
+                success=False,
+                retcode=10013,
+                retcode_description=f"Symbol {self.symbol} not found in Market Watch.",
+            )
+
+        # 5. Enforce dynamic volume bounds & safety cap (5.0 lots)
+        min_vol = getattr(info, "volume_min", 0.01)
+        max_broker_vol = getattr(info, "volume_max", 50.0)
+        vol_step = getattr(info, "volume_step", 0.01)
+        max_safe_volume = min(5.0, max_broker_vol)
+
+        # Round order volume to broker step and clamp within [min_vol, max_safe_volume]
+        if vol_step > 0:
+            steps = round((order.volume - min_vol) / vol_step)
+            order_vol = round(min_vol + steps * vol_step, 2)
+        else:
+            order_vol = round(order.volume, 2)
+        order_vol = max(min_vol, order_vol)
+
+        if order_vol > max_safe_volume:
             return ExecutionResult(
                 success=False,
                 retcode=10014,
-                retcode_description=f"Volume safety cap violated: {order.volume} > 0.01 lot.",
+                retcode_description=f"Volume safety cap violated: {order_vol} > {max_safe_volume} lot.",
             )
 
-        # 4. Get latest broker tick
+        # 6. Get latest broker tick
         tick = self._mt5.symbol_info_tick(self.symbol)
         if tick is None:
             return ExecutionResult(
@@ -157,17 +209,9 @@ class MT5OrderBridge:
                 retcode_description="Unable to fetch current market tick from MT5.",
             )
 
-        info = self._mt5.symbol_info(self.symbol)
-        if info is None:
-            return ExecutionResult(
-                success=False,
-                retcode=10013,
-                retcode_description=f"Symbol {self.symbol} not found in Market Watch.",
-            )
-
         digits = info.digits
 
-        # 5. Determine order type and price
+        # 7. Determine order type and price
         if order.side == OrderSide.BUY:
             order_type = self._mt5.ORDER_TYPE_BUY
             price = tick.ask
@@ -181,17 +225,25 @@ class MT5OrderBridge:
                 retcode_description=f"Invalid order side: {order.side}",
             )
 
-        # 6. Format stops with broker precision
+        # 8. Format stops with broker precision
         sl_price = round(order.stop_loss, digits)
         tp_price = round(order.take_profit, digits)
 
-        # 7. Determine filling mode (Exness supports IOC for Market Execution)
+        # 9. Determine adaptive filling mode (IOC by default, or FOK/RETURN per broker specification)
         filling_mode = self._mt5.ORDER_FILLING_IOC
+        fill_flags = getattr(info, "filling_mode", 0)
+        if fill_flags != 0:
+            if fill_flags & 2:  # SYMBOL_FILLING_IOC
+                filling_mode = self._mt5.ORDER_FILLING_IOC
+            elif fill_flags & 1:  # SYMBOL_FILLING_FOK
+                filling_mode = self._mt5.ORDER_FILLING_FOK
+            else:
+                filling_mode = self._mt5.ORDER_FILLING_RETURN
 
         request = {
             "action": self._mt5.TRADE_ACTION_DEAL,
             "symbol": self.symbol,
-            "volume": order.volume,
+            "volume": order_vol,
             "type": order_type,
             "price": price,
             "sl": sl_price,
@@ -206,7 +258,7 @@ class MT5OrderBridge:
         logger.info(
             "Submitting Live MT5 DEMO Order: %s %.2f lot %s @ %.3f (SL: %.3f, TP: %.3f, Magic: %d)",
             order.side.value,
-            order.volume,
+            order_vol,
             self.symbol,
             price,
             sl_price,
@@ -215,6 +267,17 @@ class MT5OrderBridge:
         )
 
         result = self._mt5.order_send(request)
+
+        # 10. Fallback retry if filling mode rejected (Retcode 10030: TRADE_RETCODE_INVALID_FILL)
+        if result is not None and result.retcode == 10030:
+            for alt_fill in [self._mt5.ORDER_FILLING_FOK, self._mt5.ORDER_FILLING_RETURN, self._mt5.ORDER_FILLING_IOC]:
+                if alt_fill != filling_mode:
+                    request["type_filling"] = alt_fill
+                    logger.info("Retrying order with alternate filling mode: %s", alt_fill)
+                    retry_res = self._mt5.order_send(request)
+                    if retry_res is not None and retry_res.retcode == 10009:
+                        result = retry_res
+                        break
 
         if result is None:
             err = self._mt5.last_error()

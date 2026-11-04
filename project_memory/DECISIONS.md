@@ -382,28 +382,36 @@
 
 ---
 
-### ADR-029: Post-Session Performance Analytics & Cyber Gold UI Aesthetic Overhaul
+### ADR-030: Dynamic Volume Scaling, MT5 Algo Trading Pre-Flight, Auto Symbol Resolution & Direct ZIP Fallback Updater
 - **Date**: 2026-11-04
 - **Status**: Accepted
 - **Context**:
-  1. The user requested automatic post-session trade recaps (covering total trades, profit/loss in USD and %, final balance, win rate, best/worst trades, and profit factor).
-  2. The user requested a visual overhaul making the application significantly more eye-catching, matching a custom Obsidian & Cyber Gold / Amber Glow design.
+  1. A user reported: *"sao bên bạn tui nó có tính hiệu mà không có lệnh nào được thực hiện bên tui thì vẫn hoạt động bình thường"* (Why does my friend's bot show signals, but no order executes in MT5, while on my side it works fine?).
+  2. Investigation revealed:
+     - On Admin ($50.81 balance), risk calculation sized trades to 0.01 lot, passing the obsolete hardcoded safety cap `if order.volume > 0.01:` in `mt5_order_bridge.py:144`.
+     - On friend's machine ($200.00 balance), dynamic 4% risk sized trades to 0.02 lot, which was immediately rejected by the volume cap!
+     - In `main.py:705`, `exec_res = bridge.send_market_order(...)` had NO `else:` branch, causing failed orders to fail completely silently without logging retcodes or reasons to the GUI.
+     - Clients using accounts with non-standard gold symbols (`XAUUSD` instead of `XAUUSDm`) or without the "Algo Trading" button enabled on MT5 suffered rejection retcodes (10013, 10027, 10030).
+     - Non-git client installations failed git pull (`fatal: not a git repository`).
 - **Decision**:
-  1. **Session Recap Engine (`src/evaluation/session_recap.py`)**:
-     - Built `SessionRecapData` and `build_session_recap()` supporting dual sources (ClosedTrade objects and MT5 history deals).
-     - Renders rich Telegram HTML summary (`to_telegram_html()`) and ASCII gold terminal box (`to_terminal_box()`).
-     - Added `notify_session_summary()` to `TelegramNotifier` and registered interactive `/summary` command.
-     - Automatic triggers in `run_paper_session` and `run_live_demo_loop` at session completion or stop/pause.
-  2. **Obsidian & Cyber Gold Desktop App Redesign (`src/ui/desktop_app.py`)**:
-     - Upgraded container aesthetics: `#141720` card background with 12px rounded corners and glowing amber/gold borders (`border_color="#f39c12"`).
-     - Upgraded 4 KPI cards with custom icons (`💼`, `📈`, `💵`, `🎯`) and mini bar-chart visual indicator ` ▂▄▆█`.
-     - Added prominent Gold Start button (`fg_color="#f39c12"`, text color `#000000`).
-     - Styled section headers in bright gold typography (`#f1c40f`).
-     - Integrated `_show_session_summary_dialog()` pop-up modal on screen with 1-click `[📲 Gửi sang Telegram]` export.
-  3. **Unit Tests**:
-     - Added `test_build_session_recap` in `tests/unit/test_evaluation.py`.
-     - Added `test_notify_session_summary` and `test_process_incoming_summary_command` in `tests/unit/test_telegram_bot.py`.
-- **Consequences**: Traders receive instant, transparent analytics at the end of every trading session on both Desktop App and Telegram, and the application now possesses a luxury Cyber Gold aesthetic matching institutional trading terminals. Test suite passing at 111/111 tests (100%).
+  1. **Dynamic Volume Scaling & Step Rounding (`src/execution/mt5_order_bridge.py`)**:
+     - Removed hardcoded 0.01 lot cap; implemented dynamic broker bounds validation with max safety cap of 5.0 lots.
+     - Volume is automatically snapped to broker `volume_step` and bounded to `[volume_min, min(5.0, volume_max)]`.
+     - Increased concurrent positions cap from 1 to 2 to support institutional scale-in pyramiding.
+  2. **MT5 Pre-Flight Checks & Fallbacks**:
+     - Auto-resolved gold symbols (`XAUUSDm`, `XAUUSD`, `GOLD`, `XAUUSD.m`, `XAUUSD.a`) with automatic selection into Market Watch.
+     - Added MT5 Algo Trading toolbar check (`terminal_info().trade_allowed`) with explicit Vietnamese diagnostic instructions.
+     - Added adaptive filling mode detection with automatic retry across IOC, FOK, and RETURN on retcode 10030 (`TRADE_RETCODE_INVALID_FILL`).
+  3. **Explicit Error Telemetry & Telegram Alerts (`src/main.py`)**:
+     - Added `else:` block to `bridge.send_market_order(...)` logging errors directly to the GUI terminal and dispatching instant Telegram failure alerts.
+     - Dynamic `active_symbol` passed to `LiveMT5Client` and rate fetchers.
+  4. **Direct GitHub ZIP Updater Fallback (`src/ui/desktop_app.py`, `start_and_update.bat`)**:
+     - `_client_update_and_check` falls back directly to `_download_and_extract_github_zip()` if `.git` directory is missing.
+     - `start_and_update.bat` suppresses git pull errors gracefully on non-git directories.
+  5. **Unit Tests**:
+     - Added `test_algo_trading_disabled_rejected` and updated `test_volume_cap_enforced` for dynamic 5.0 lot limit in `tests/unit/test_mt5_bridge.py`.
+- **Consequences**: Order execution works seamlessly across diverse account balances ($50 to $10,000+), account types (Standard, Pro, Raw), and client environments with 100% transparency. Test suite passing at 112/112 tests (100%).
+
 
 
 

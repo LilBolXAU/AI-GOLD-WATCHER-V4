@@ -3,13 +3,20 @@ title AI GOLD WATCHER V4 - AUTO UPDATER AND LAUNCHER
 echo ========================================================
 echo   AI GOLD WATCHER V4 - AUTO SYNC AND LAUNCHER
 echo ========================================================
-echo [1/3] Kiem tra va tai ban cap nhat moi nhat tu GitHub...
-git pull origin main
-if %ERRORLEVEL% NEQ 0 (
-    echo [CANH BAO] Khong the tai ban cap nhat tu GitHub.
-    echo He thong se tiep tuc chay voi phien ban hien tai tren may.
+echo [1/3] Kiem tra va dong bo ban cap nhat moi nhat...
+if not exist ".git" (
+    echo [THONG BAO] Thu muc dang khoi tao ket noi Git voi GitHub...
+    git init >nul 2>&1
+    git remote add origin https://github.com/LilBolXAU/AI-GOLD-WATCHER-V4.git >nul 2>&1
+    git fetch origin main >nul 2>&1
+    git checkout -f -B main origin/main >nul 2>&1
+)
+
+git pull origin main >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Da dong bo ma nguon moi nhat tu GitHub thanh cong!
 ) else (
-    echo [OK] Da dong bo ma nguon moi nhat thanh cong!
+    echo [THONG BAO] Dang su dung phien ban hien tai (ung dung co co che tu dong cap nhat truc tiep).
 )
 echo.
 
